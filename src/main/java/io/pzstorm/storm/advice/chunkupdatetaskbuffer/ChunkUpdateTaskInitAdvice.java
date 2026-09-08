@@ -1,10 +1,8 @@
 package io.pzstorm.storm.advice.chunkupdatetaskbuffer;
 
-import net.bytebuddy.asm.Advice;
-
-import zombie.iso.IsoChunk;
-
 import java.nio.ByteBuffer;
+import net.bytebuddy.asm.Advice;
+import zombie.iso.IsoChunk;
 
 /**
  * Inlined at the top of {@code zombie.pathfind.nativeCode.ChunkUpdateTask.init(IsoChunk)}.
