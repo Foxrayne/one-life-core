@@ -2,7 +2,13 @@ package io.pzstorm.storm.patch.fixes;
 
 import static io.pzstorm.storm.logging.StormLogger.LOGGER;
 
+import java.util.ArrayList;
 import zombie.characters.animals.IsoAnimal;
+import zombie.inventory.InventoryItem;
+import zombie.inventory.ItemContainer;
+import zombie.inventory.types.AnimalInventoryItem;
+import zombie.inventory.types.Food;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.objects.IsoHutch;
 
 /**
@@ -40,8 +46,21 @@ import zombie.iso.objects.IsoHutch;
  * coop). An animal arriving with origin coordinates gets the hutch's enter-spot tile, the same tile
  * {@code releaseAnimal} uses as its fallback.
  *
- * <p>The decision logic ({@link #needsFix}) is split out from the I/O ({@link #ensurePosition}) so
- * it can be unit-tested without game classes on the classpath.
+ * <h2>The second hatch path</h2>
+ *
+ * <p>{@code Food.update()} calls {@code checkEggHatch(null)} for every egg that is not in a nest
+ * box. That branch resolves x/y/z only for a world item, a vehicle trailer, or a player's own
+ * inventory. An egg in any other container — a crate, a counter, a bag — keeps {@code (0, 0, 0)},
+ * and because the container is not "floor" the code sets {@code inInv = true}, which also disables
+ * the {@code x == 0 && y == 0} guard. The chick is boxed straight into that container as a {@code
+ * Base.Animal} item positioned at the origin. It never enters a hutch, so the advice above cannot
+ * see it. {@link #ensureContainerHatchPosition} closes this path from an exit advice on {@code
+ * checkEggHatch}: the egg's container is captured on entry (the hatch removes the egg from it), and
+ * on a successful non-hutch hatch every origin-positioned boxed animal in that container is moved
+ * to the container's resolved world square.
+ *
+ * <p>The decision logic ({@link #needsFix}, {@link #isAtOrigin}) is split out from the I/O so it
+ * can be unit-tested without game classes on the classpath.
  */
 public final class CoopHatchPositionFix {
 
@@ -63,10 +82,22 @@ public final class CoopHatchPositionFix {
      * @return {@code true} if the animal should be moved to the hutch
      */
     public static boolean needsFix(float animalX, float animalY, int hutchSavedX, int hutchSavedY) {
-        if (animalX >= 1.0f || animalY >= 1.0f) {
+        if (!isAtOrigin(animalX, animalY)) {
             return false;
         }
         return hutchSavedX != 0 || hutchSavedY != 0;
+    }
+
+    /**
+     * Pure decision: is {@code (animalX, animalY)} inside the origin band that only a {@code (0, 0,
+     * 0)}-constructed animal occupies?
+     *
+     * @param animalX the animal's current world x
+     * @param animalY the animal's current world y
+     * @return {@code true} if both axes are below one tile
+     */
+    public static boolean isAtOrigin(float animalX, float animalY) {
+        return animalX < 1.0f && animalY < 1.0f;
     }
 
     /**
@@ -104,5 +135,73 @@ public final class CoopHatchPositionFix {
                 hutch.savedX,
                 hutch.savedY,
                 hutch.savedZ);
+    }
+
+    /**
+     * Entry half of the {@code Food.checkEggHatch(IsoHutch)} advice: remember which container a
+     * fertilized egg sits in, because a hatch removes the egg from it before the method returns.
+     *
+     * @param eggRef the {@code Food} whose hatch is being checked
+     * @return the egg's {@code ItemContainer}, or {@code null} if the egg cannot hatch or is loose
+     */
+    public static Object captureHatchContainer(Object eggRef) {
+        Food egg = (Food) eggRef;
+        if (!egg.isFertilized()) {
+            return null;
+        }
+        return egg.getContainer();
+    }
+
+    /**
+     * Exit half of the {@code Food.checkEggHatch(IsoHutch)} advice. After a non-hutch hatch,
+     * re-home every origin-positioned boxed animal in the egg's former container to that
+     * container's world square.
+     *
+     * @param hutchRef the {@code IsoHutch} argument, non-null on the nest-box path this ignores
+     * @param hatched the method's return value
+     * @param containerRef the container captured by {@link #captureHatchContainer}
+     */
+    public static void ensureContainerHatchPosition(
+            Object hutchRef, boolean hatched, Object containerRef) {
+        if (!hatched || hutchRef != null || containerRef == null) {
+            return;
+        }
+        ItemContainer container = (ItemContainer) containerRef;
+        ArrayList<InventoryItem> items = container.getItems();
+        IsoGridSquare square = null;
+        boolean resolved = false;
+        for (int i = items.size() - 1; i >= 0; i--) {
+            InventoryItem item = items.get(i);
+            if (!(item instanceof AnimalInventoryItem)) {
+                continue;
+            }
+            IsoAnimal animal = ((AnimalInventoryItem) item).getAnimal();
+            if (animal == null || !isAtOrigin(animal.getX(), animal.getY())) {
+                continue;
+            }
+            if (!resolved) {
+                square = container.getSquare();
+                resolved = true;
+            }
+            if (square == null) {
+                LOGGER.warn(
+                        "Origin-positioned {} (id {}) hatched in {} container with no resolvable square",
+                        animal.getAnimalType(),
+                        animal.getOnlineID(),
+                        container.getType());
+                return;
+            }
+            animal.setX(square.getX() + 0.5f);
+            animal.setY(square.getY() + 0.5f);
+            animal.setZ(square.getZ());
+            LOGGER.warn(
+                    "Repaired origin-positioned {} (id {}) hatched in {} container at {},{},{}",
+                    animal.getAnimalType(),
+                    animal.getOnlineID(),
+                    container.getType(),
+                    square.getX(),
+                    square.getY(),
+                    square.getZ());
+        }
     }
 }
