@@ -70,7 +70,9 @@ import zombie.iso.areas.DesignationZoneAnimal;
  * (it cannot break out, and its next wander target is clamped back in). Food-luring is unaffected
  * because it moves the animal through {@code pathToCharacter}, not {@code pathToLocation}; a
  * player's {@code callOut} will bring contained animals to the near edge of the zone rather than
- * out of it.
+ * out of it. An animal on a rope (or tied to a tree) is exempt from the clamp: vanilla leads it by
+ * wandering it toward targets around the player through {@code pathToLocation}, so clamping those
+ * would pin it in the pen.
  *
  * <p>The trade the fix makes deliberately: a contained animal that runs out of food and water will
  * now stay in its pen and starve instead of eating the wall and leaving. That is the point of the
@@ -183,6 +185,9 @@ public final class AnimalZoneContainment {
         }
         try {
             IsoAnimal animal = (IsoAnimal) animalRef;
+            if (isBeingMoved(animal)) {
+                return NO_CLAMP;
+            }
             ArrayList<DesignationZoneAnimal> zones = animal.getConnectedDZone();
             if (zones.isEmpty()) {
                 DesignationZoneAnimal home = strayHomeZone(animal);
@@ -266,16 +271,14 @@ public final class AnimalZoneContainment {
 
     /**
      * The zone a non-wild animal standing outside every zone still belongs to: the nearest animal
-     * zone on its own floor within {@link #getLeashDistance()} tiles. Animals a player is leading
-     * or that are tied to a tree are exempt — those are being moved on purpose.
+     * zone on its own floor within {@link #getLeashDistance()} tiles.
      */
     private static DesignationZoneAnimal strayHomeZone(IsoAnimal animal) {
         int radius = leashDistance;
         if (radius <= 0 || animal.isWild()) {
             return null;
         }
-        AnimalData data = animal.getData();
-        if (data == null || data.getAttachedPlayer() != null || data.getAttachedTree() != null) {
+        if (isBeingMoved(animal)) {
             return null;
         }
         int x = (int) animal.getX();
@@ -329,6 +332,16 @@ public final class AnimalZoneContainment {
         IsoGridSquare square =
                 animal.getCell() == null ? null : animal.getCell().getGridSquare(x, y, z);
         return square != null && square.isFree(true);
+    }
+
+    /**
+     * A leashed animal follows the player by wandering toward targets around them through {@code
+     * pathToLocation}, and a tied one stays near its tree the same way. Both are being moved on
+     * purpose, so their targets are never clamped and neither counts as a stray.
+     */
+    private static boolean isBeingMoved(IsoAnimal animal) {
+        AnimalData data = animal.getData();
+        return data != null && (data.getAttachedPlayer() != null || data.getAttachedTree() != null);
     }
 
     private static long squaredDistance(int x1, int y1, int x2, int y2) {
