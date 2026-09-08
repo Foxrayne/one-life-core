@@ -1,7 +1,6 @@
 package io.pzstorm.storm.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -31,42 +30,68 @@ class StormServerModDirsTest {
     @Test
     void readsIdFromCommonModInfo() throws IOException {
         Path mod = modDir(tmp, "TrueActionsDancing", "common", "name=TAD", "id=TrueActionsDancing");
-        assertEquals("TrueActionsDancing", StormServerModDirs.readModId(mod));
+        assertEquals(List.of("TrueActionsDancing"), StormServerModDirs.readModIds(mod));
     }
 
     @Test
     void readsIdFromVersionDirModInfo() throws IOException {
         Path mod = modDir(tmp, "SomeMod", "42.9", "id=SomeMod42");
-        assertEquals("SomeMod42", StormServerModDirs.readModId(mod));
+        assertEquals(List.of("SomeMod42"), StormServerModDirs.readModIds(mod));
     }
 
     @Test
     void readsIdFromB41RootModInfo() throws IOException {
         Path mod = modDir(tmp, "OldMod", "", "id=OldMod");
-        assertEquals("OldMod", StormServerModDirs.readModId(mod));
+        assertEquals(List.of("OldMod"), StormServerModDirs.readModIds(mod));
     }
 
     @Test
     void ignoresBomAndTrimsId() throws IOException {
         Path mod = modDir(tmp, "BomMod", "common", "\uFEFFid=BomMod  ");
-        assertEquals("BomMod", StormServerModDirs.readModId(mod));
+        assertEquals(List.of("BomMod"), StormServerModDirs.readModIds(mod));
     }
 
     @Test
     void ignoresLinesMerelyContainingId() throws IOException {
         // vanilla only honors lines that START with id= — description=... id=Wrong must not match
         Path mod = modDir(tmp, "Tricky", "common", "description=has id=Wrong inside", "id=Right");
-        assertEquals("Right", StormServerModDirs.readModId(mod));
+        assertEquals(List.of("Right"), StormServerModDirs.readModIds(mod));
     }
 
     @Test
-    void missingOrIdlessModInfoYieldsNull() throws IOException {
+    void missingOrIdlessModInfoYieldsNothing() throws IOException {
         Path noInfo = tmp.resolve("mods").resolve("Empty");
         Files.createDirectories(noInfo);
-        assertNull(StormServerModDirs.readModId(noInfo));
+        assertTrue(StormServerModDirs.readModIds(noInfo).isEmpty());
 
         Path noId = modDir(tmp, "NoId", "common", "name=NoId");
-        assertNull(StormServerModDirs.readModId(noId));
+        assertTrue(StormServerModDirs.readModIds(noId).isEmpty());
+    }
+
+    @Test
+    void readsEveryDistinctIdAcrossRootAndVersionDirs() throws IOException {
+        // Yaki's Hair Salon layout: B41 root mod.info keeps the old id, 42.0/ declares the B42 one
+        Path mod = modDir(tmp, "Yaki's Hair Salon - BASE", "", "id=YakiHSBasegameTextureB41");
+        modDir(tmp, "Yaki's Hair Salon - BASE", "42.0", "id=YakiHSBasegameTextureB42");
+        modDir(tmp, "Yaki's Hair Salon - BASE", "common", "id=YakiHSBasegameTextureB42");
+
+        List<String> ids = StormServerModDirs.readModIds(mod);
+
+        assertEquals(2, ids.size());
+        assertEquals("YakiHSBasegameTextureB41", ids.get(0));
+        assertTrue(ids.contains("YakiHSBasegameTextureB42"));
+    }
+
+    @Test
+    void scanPinsEveryIdOfADualIdModToTheSameDir() throws IOException {
+        Path item = tmp.resolve("2761200458");
+        Path mod = modDir(item, "Yaki's Hair Salon - BASE", "", "id=YakiHSBasegameTextureB41");
+        modDir(item, "Yaki's Hair Salon - BASE", "42.0", "id=YakiHSBasegameTextureB42");
+
+        Map<String, String> dirs = StormServerModDirs.scanItems(List.of(item));
+
+        assertEquals(mod.toAbsolutePath().toString(), dirs.get("YakiHSBasegameTextureB41"));
+        assertEquals(mod.toAbsolutePath().toString(), dirs.get("YakiHSBasegameTextureB42"));
     }
 
     @Test
