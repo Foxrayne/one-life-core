@@ -267,7 +267,12 @@ Design points:
 Launcher releases are decoupled from workshop publishes: the launcher has its
 own version (`launcherVersion` in `gradle.properties`, shown in the window
 title and by `--version`, independent of the Storm/game version) and its own
-release channel — an S3 object behind CloudFront at
+release channel. The header also shows the Storm core version the game will
+load, resolved the way the bootstrap resolves it (`StormInstallVersion`): the
+workshop item's newest `storm-<pz>_<storm>.jar`, or the CDN-staged core under
+`~/Zomboid/storm/core/stage` when that is strictly newer and the item is not a
+SNAPSHOT. Hover the label for the jar path. The launcher's own channel is an
+S3 object behind CloudFront at
 `https://guspuffy.com/storm/launcher/storm-launcher.jar`.
 
 Publishing a release is one task:

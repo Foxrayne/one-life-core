@@ -12,6 +12,7 @@ import io.pzstorm.launcher.PrivacyPolicy;
 import io.pzstorm.launcher.ServerProfile;
 import io.pzstorm.launcher.ServerStore;
 import io.pzstorm.launcher.SteamRestartRequiredException;
+import io.pzstorm.launcher.StormInstallVersion;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -54,6 +55,7 @@ public final class LauncherWindow extends JFrame {
     private final JLabel detailAddress = new JLabel(" ");
     private final JLabel detailCharacter = new JLabel(" ");
     private final JLabel detailAutoConnect = new JLabel(" ");
+    private final JLabel stormVersion = new JLabel(" ");
 
     public LauncherWindow(LauncherConfig config) {
         super("Storm Launcher " + LauncherInfo.version());
@@ -102,6 +104,7 @@ public final class LauncherWindow extends JFrame {
                 gameDir != null
                         ? "Game directory: " + gameDir
                         : "Game directory NOT found — open Settings and point me at Project Zomboid.");
+        refreshStormVersion(gameDir);
         pack();
         setMinimumSize(new Dimension(920, 620));
         setLocationRelativeTo(null);
@@ -171,12 +174,16 @@ public final class LauncherWindow extends JFrame {
         JLabel version = new JLabel(LauncherInfo.version());
         version.setFont(StormTheme.font(Font.PLAIN, 11f));
         version.setForeground(StormTheme.TEXT_FAINT);
+        stormVersion.setFont(StormTheme.font(Font.PLAIN, 11f));
+        stormVersion.setForeground(StormTheme.TEXT_FAINT);
 
         header.add(wordmark);
         header.add(Box.createHorizontalStrut(6));
         header.add(sub);
         header.add(Box.createHorizontalStrut(10));
         header.add(version);
+        header.add(Box.createHorizontalStrut(10));
+        header.add(stormVersion);
         header.add(Box.createHorizontalGlue());
         header.add(ghost("Send Logs", this::onSendLogs));
         header.add(Box.createHorizontalStrut(4));
@@ -442,7 +449,19 @@ public final class LauncherWindow extends JFrame {
                     gameDir != null
                             ? "Game directory: " + gameDir
                             : "Game directory still not found.");
+            refreshStormVersion(gameDir);
         }
+    }
+
+    private void refreshStormVersion(Path gameDir) {
+        StormInstallVersion.Installed installed =
+                StormInstallVersion.find(config.resolveBootstrapDir(gameDir));
+        stormVersion.setText(StormInstallVersion.label(installed));
+        stormVersion.setToolTipText(installed == null ? null : installed.jar().toString());
+        Log.info(
+                installed == null
+                        ? "Storm core NOT found next to the bootstrap."
+                        : "Storm core " + installed.fullVersion() + " from " + installed.jar());
     }
 
     /**
