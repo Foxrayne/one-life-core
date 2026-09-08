@@ -118,6 +118,7 @@ import io.pzstorm.storm.patch.performance.CharacterVariableLookupAccessorPatch;
 import io.pzstorm.storm.patch.performance.CharacterVariableResolveTypedPatch;
 import io.pzstorm.storm.patch.performance.ChunkChecksumMetricsPatch;
 import io.pzstorm.storm.patch.performance.ChunkStreamWorkerMetricsPatch;
+import io.pzstorm.storm.patch.performance.ChunkUpdateTaskBufferSizingPatch;
 import io.pzstorm.storm.patch.performance.ClientChunkRequestPatch;
 import io.pzstorm.storm.patch.performance.ClientServerMapCharacterInPatch;
 import io.pzstorm.storm.patch.performance.ClimateManagerUpdatePatch;
@@ -641,6 +642,7 @@ public class StormClassTransformers {
             registerTransformer(new MapCollisionDataRemoveChunkPatch());
             registerTransformer(new PolygonalMap2RemoveChunkPatch());
             registerTransformer(new PathfindNativeRemoveChunkPatch());
+            registerTransformer(new ChunkUpdateTaskBufferSizingPatch());
             registerTransformer(new ZombiePopManRemoveChunkPatch());
             registerTransformer(new AnimalPopManRemoveChunkPatch());
             registerTransformer(new IsoChunkAddVehiclesPatch());
