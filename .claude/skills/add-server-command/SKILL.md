@@ -45,5 +45,6 @@ description: Add a new dedicated-server console command to Storm (a `CommandBase
 ## Tips
 
 - `@RequiredCapability` gates visibility. `Capability.DebugConsole` restricts to admins; pick a less-privileged one if regular players should see/use it.
+- For a command every player may run, use `Capability.LoginOnServer` (what vanilla `/help` and `/list` use). `Capability.None` rejects everyone with "has not right to execute": `CommandBase` checks `role.capabilities.contains(cap)` and no role holds `None`.
 - `shouldTranslated = false` skips the i18n lookup for `helpText`. Set `true` and add a translation entry only if you actually need localization.
 - The string returned from `Command()` is what the caller sees back. Return a status line or short result; longer output should be logged.
