@@ -2,7 +2,16 @@ package io.pzstorm.storm.event.lua;
 
 import io.pzstorm.storm.event.core.LuaEvent;
 
-/** Triggered on the server when a player has fully connected (authenticated and loaded). */
+/**
+ * Flattened snapshot of a player that finished {@code GameServer.receivePlayerConnect}. Storm does
+ * not fire this event; it is a data carrier for mods that dispatch it themselves (historically the
+ * extra-logging mod's own {@code GameServer} patch) or trigger it from Lua.
+ *
+ * @deprecated kept for backwards compatibility only. Subscribe to {@link
+ *     io.pzstorm.storm.event.zomboid.OnPlayerEnterWorldEvent}, which Storm fires from the same seam
+ *     with the live {@code IsoPlayer} and {@code UdpConnection} instead of copied fields.
+ */
+@Deprecated
 public class OnPlayerFullyConnectedEvent implements LuaEvent {
 
     public final String username;

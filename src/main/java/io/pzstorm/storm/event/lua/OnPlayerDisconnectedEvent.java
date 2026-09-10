@@ -2,7 +2,17 @@ package io.pzstorm.storm.event.lua;
 
 import io.pzstorm.storm.event.core.LuaEvent;
 
-/** Triggered on the server when a player disconnects. */
+/**
+ * Flattened snapshot of a player entering {@code GameServer.disconnectPlayer}. Storm does not fire
+ * this event; it is a data carrier for mods that dispatch it themselves (historically the
+ * extra-logging mod's own {@code GameServer} patch) or trigger it from Lua.
+ *
+ * @deprecated kept for backwards compatibility only. Subscribe to {@link
+ *     io.pzstorm.storm.event.zomboid.OnPlayerLeaveWorldEvent}, which Storm fires from the same seam
+ *     with the live {@code IsoPlayer} and {@code UdpConnection}, and which can tell a closing
+ *     connection from a character swap.
+ */
+@Deprecated
 public class OnPlayerDisconnectedEvent implements LuaEvent {
 
     public final String username;

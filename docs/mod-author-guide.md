@@ -63,6 +63,22 @@ annotation on a method, register the class, and Storm wires it up.
 Handlers may be static (register the class) or instance (register an
 instance) — Storm rejects a mix on the same handler.
 
+Player lifecycle on the server: `OnPlayerEnterWorldEvent` (`getPlayer()`,
+`getConnection()`, `getUsername()`) fires after `GameServer.receivePlayerConnect`
+registers a character, and `OnPlayerLeaveWorldEvent` (same getters plus
+`isConnectionClosed()`) fires at the top of `GameServer.disconnectPlayer` while the
+player is still in `IDToPlayerMap`. Both live in `io.pzstorm.storm.event.zomboid`
+and run on the main thread. A respawn goes through both seams on the same
+connection (old character leaves, new one enters), so a handler that tracks who
+is online should treat `isConnectionClosed() == false` as a character swap rather
+than a leave.
+
+The older `OnPlayerFullyConnectedEvent` / `OnPlayerDisconnectedEvent` classes in
+`io.pzstorm.storm.event.lua` are deprecated but unchanged. Storm never fired them;
+they are flattened snapshots (username, ip, steamId, coords, ...) that a mod
+dispatches itself or triggers from Lua, and any mod that still does so keeps
+working. New code should subscribe to the `zomboid` events above.
+
 ## Typed packet events
 
 In addition to the raw `OnPacketReceivedEvent`, nearly every patched packet has

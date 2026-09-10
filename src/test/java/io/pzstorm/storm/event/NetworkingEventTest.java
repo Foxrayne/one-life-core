@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for networking event construction and field access. */
+@SuppressWarnings("deprecation")
 class NetworkingEventTest implements UnitTest {
 
     @Test

@@ -77,6 +77,7 @@ import io.pzstorm.storm.patch.networking.CoopMasterPatch;
 import io.pzstorm.storm.patch.networking.GameEntityBroadcastGatePatch;
 import io.pzstorm.storm.patch.networking.GameServerConnectionCapPatch;
 import io.pzstorm.storm.patch.networking.GameServerLockFpsPatch;
+import io.pzstorm.storm.patch.networking.GameServerPlayerConnectionEventsPatch;
 import io.pzstorm.storm.patch.networking.GameServerStalledConnectionReapPatch;
 import io.pzstorm.storm.patch.networking.GameServerTickRatePatch;
 import io.pzstorm.storm.patch.networking.GameServerWorkshopItemsPatch;
@@ -591,6 +592,7 @@ public class StormClassTransformers {
             registerTransformer(new GameEntityBroadcastGatePatch());
             registerTransformer(new GameServerWorkshopItemsPatch());
             registerTransformer(new GameServerStalledConnectionReapPatch());
+            registerTransformer(new GameServerPlayerConnectionEventsPatch());
             registerTransformer(new RequestDataManagerFixPatch());
             registerTransformer(new PlayerDownloadServerChunkActivityPatch());
             registerTransformer(new GameServerConnectionCapPatch());
