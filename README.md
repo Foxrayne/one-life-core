@@ -6,7 +6,7 @@ One/Life Core is a fork of [Project Zomboid Storm](https://github.com/guspuffygi
 [![License](https://img.shields.io/github/license/guspuffygit/project-zomboid-storm?logo=gnu)](https://www.gnu.org/licenses/)
 [![Discord](https://img.shields.io/badge/Discord-One%2FLife-e60069?logo=discord&logoColor=white)](https://discord.gg/qccG89rvzT)
 
-One/Life is a persistent Build 42 PvE community server at `172.240.18.253:16261`. It features a player economy, custom content, dangerous zones, factions, events and long-term progression. Despite the name, it is not a permadeath server.
+One/Life is a persistent Build 42 PvPvE community server at `172.240.18.253:16261`. It features a player economy, custom content, dangerous zones, factions, events and long-term progression. Despite the name, it is not a permadeath server.
 
 Storm Mod Loader pairs server-side Java mods with Lua client mods to enable functionality beyond what Lua-only mods can do. Vanilla clients connect to a Java-modded server without the need to setup Java modding locally. Mods are distributed through the normal Steam Workshop.
 

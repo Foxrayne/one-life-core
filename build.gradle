@@ -77,7 +77,7 @@ def steamLoginArgs = {
 	return [username]
 }
 
-String workshopDescription = '''[h1]ONE/LIFE 24/7 - B42 PvE[/h1]
+String workshopDescription = '''[h1]ONE/LIFE 24/7 - B42 PvPvE[/h1]
 
 A heavily modded Project Zomboid server with a player economy, custom content, dangerous zones and plenty to work towards.
 

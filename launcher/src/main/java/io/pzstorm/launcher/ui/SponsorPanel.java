@@ -37,7 +37,7 @@ public final class SponsorPanel extends JPanel {
      */
     private static final int LOGO_SIZE = 56;
 
-    private final JLabel playersLabel = new JLabel("B42 PvE  ·  24/7 persistent world");
+    private final JLabel playersLabel = new JLabel("B42 PvPvE  ·  24/7 persistent world");
 
     /**
      * @param playOnAtf runs when "Play One/Life" is clicked; the launcher window owns profile
