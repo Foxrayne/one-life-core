@@ -21,8 +21,10 @@ import net.bytebuddy.pool.TypePool;
  *       carried animal and corpse-ifies it via {@code IsoDeadBody.new} from Lua, skipping {@code
  *       DoDeath} entirely. The normal path is deduplicated by {@code AnimalDeathEvents}.
  *   <li>{@code zombie.characters.animals.IsoAnimal} — {@code killed(IsoPlayer)} stamps {@code
- *       attackedBy} for the Lua slaughter action ({@code ISKillAnimal}) so the ensuing
- *       state-machine death attributes the killer. No event fires from this seam.
+ *       attackedBy} for the Lua slaughter action ({@code ISKillAnimal}), and {@code
+ *       HitByAnimal(IsoAnimal, boolean)} stamps it for fatal animal-fight blows ({@code
+ *       AnimalAttackState}), so the ensuing state-machine death attributes the killer. No event
+ *       fires from these seams.
  * </ul>
  *
  * <p>Deliberately NOT woven, because they re-materialize corpses of animals that already died (and
@@ -65,13 +67,25 @@ public class AnimalDeathBypassPatch extends StormClassTransformer {
                                                 .and(ElementMatchers.takesArguments(3))));
             case "zombie.characters.animals.IsoAnimal":
                 return builder.visit(
-                        Advice.to(
-                                        typePool.describe(PKG + "AnimalKilledAttributionAdvice")
-                                                .resolve(),
-                                        locator)
-                                .on(
-                                        ElementMatchers.named("killed")
-                                                .and(ElementMatchers.takesArguments(1))));
+                                Advice.to(
+                                                typePool.describe(
+                                                                PKG
+                                                                        + "AnimalKilledAttributionAdvice")
+                                                        .resolve(),
+                                                locator)
+                                        .on(
+                                                ElementMatchers.named("killed")
+                                                        .and(ElementMatchers.takesArguments(1))))
+                        .visit(
+                                Advice.to(
+                                                typePool.describe(
+                                                                PKG
+                                                                        + "AnimalHitByAnimalAttributionAdvice")
+                                                        .resolve(),
+                                                locator)
+                                        .on(
+                                                ElementMatchers.named("HitByAnimal")
+                                                        .and(ElementMatchers.takesArguments(2))));
             default:
                 throw new IllegalArgumentException(
                         "AnimalDeathBypassPatch has no advice for " + getClassName());

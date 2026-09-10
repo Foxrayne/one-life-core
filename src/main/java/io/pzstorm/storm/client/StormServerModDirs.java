@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import org.jetbrains.annotations.Nullable;
 import zombie.ZomboidFileSystem;
 import zombie.core.znet.SteamWorkshop;
 import zombie.gameStates.ChooseGameInfo;
@@ -171,8 +170,7 @@ public final class StormServerModDirs {
             try (DirectoryStream<Path> mods =
                     Files.newDirectoryStream(modsDir, Files::isDirectory)) {
                 for (Path modDir : mods) {
-                    String modId = readModId(modDir);
-                    if (modId != null) {
+                    for (String modId : readModIds(modDir)) {
                         dirs.putIfAbsent(modId, modDir.toAbsolutePath().toString());
                     }
                 }
@@ -184,11 +182,15 @@ public final class StormServerModDirs {
     }
 
     /**
-     * The {@code id=} value from the mod's {@code mod.info} — checked at the mod root (B41 layout)
-     * and one level down (B42's {@code common/} and version dirs), matching where {@code
-     * getAllModFoldersAux} accepts one. Null when no mod.info declares an id.
+     * Every distinct {@code id=} declared by the mod's {@code mod.info} files — at the mod root
+     * (B41 layout) and one level down (B42's {@code common/} and version dirs), matching where
+     * {@code getAllModFoldersAux} accepts one. All of them are pinned because the server lists the
+     * id vanilla reads from the version dir, and a mod that kept its B41 root mod.info declares a
+     * different id there (Yaki's Hair Salon: root {@code YakiHSBasegameTextureB41}, {@code 42.0/}
+     * {@code YakiHSBasegameTextureB42}). Pinning only the root id left the server's id unresolved
+     * whenever the vanilla walk could not see the item.
      */
-    static @Nullable String readModId(Path modDir) {
+    static List<String> readModIds(Path modDir) {
         List<Path> candidates = new ArrayList<>();
         candidates.add(modDir.resolve("mod.info"));
         try (DirectoryStream<Path> subDirs = Files.newDirectoryStream(modDir, Files::isDirectory)) {
@@ -196,8 +198,9 @@ public final class StormServerModDirs {
                 candidates.add(subDir.resolve("mod.info"));
             }
         } catch (Exception e) {
-            return null;
+            return List.of();
         }
+        List<String> ids = new ArrayList<>();
         for (Path candidate : candidates) {
             if (!Files.isRegularFile(candidate)) {
                 continue;
@@ -211,16 +214,17 @@ public final class StormServerModDirs {
                     // same parse as vanilla ChooseGameInfo.readModInfoAux
                     if (line.startsWith("id=")) {
                         String id = line.replace("id=", "").trim();
-                        if (!id.isEmpty()) {
-                            return id;
+                        if (!id.isEmpty() && !ids.contains(id)) {
+                            ids.add(id);
                         }
+                        break;
                     }
                 }
             } catch (Exception e) {
                 LOGGER.warn("Could not read {}: {}", candidate, e.toString());
             }
         }
-        return null;
+        return ids;
     }
 
     /**
@@ -275,8 +279,7 @@ public final class StormServerModDirs {
      */
     private static void hoistServerItemFolders() throws ReflectiveOperationException {
         List<Path> serverItems = serverItemFolders;
-        List<Path> installedRoots = installedItemRoots();
-        if (serverItems.isEmpty() || installedRoots.isEmpty()) {
+        if (serverItems.isEmpty()) {
             return;
         }
         // force the lazy build so we reorder the very list vanilla goes on to use
@@ -286,6 +289,11 @@ public final class StormServerModDirs {
         @SuppressWarnings("unchecked")
         List<String> modFolders = (List<String>) foldersField.get(ZomboidFileSystem.instance);
         if (modFolders == null) {
+            return;
+        }
+        List<Path> installedRoots = installedItemRoots();
+        if (installedRoots.isEmpty()) {
+            seedServerModFolders(modFolders);
             return;
         }
         List<Path> serverRoots = new ArrayList<>();
@@ -317,6 +325,33 @@ public final class StormServerModDirs {
                 "Hoisted {} server workshop mod folder(s) ahead of {} other installed folder(s)",
                 serverCopies.size(),
                 others.size());
+    }
+
+    /**
+     * {@code SteamWorkshop.GetInstalledItemFolders()} came back empty, so vanilla's folder walk
+     * holds no Steam-installed mod at all: the boot walk failed on the server's first mod, and only
+     * the pins make connect-time resolution work. Seen on a client with ~275 subscribed items whose
+     * game also crashed natively inside that call. Appending the server's mod folders is what
+     * {@code getAllModFoldersAux} would have added for those items, so every consumer that walks
+     * {@code getAllModFolders} (duplicate-id tie-break, Lua dir walks) sees the same copies the
+     * pins name.
+     */
+    private static void seedServerModFolders(List<String> modFolders) {
+        int added = 0;
+        for (String modDir : serverModDirs.values()) {
+            if (!modFolders.contains(modDir)) {
+                modFolders.add(modDir);
+                added++;
+            }
+        }
+        if (added == 0) {
+            return;
+        }
+        LOGGER.warn(
+                "Steam reported no installed workshop item folders — vanilla cannot see any"
+                        + " workshop mod on this client; seeded {} server mod folder(s) from the"
+                        + " server's own items instead",
+                added);
     }
 
     /** Install roots of every subscribed workshop item, normalized for prefix tests. */
