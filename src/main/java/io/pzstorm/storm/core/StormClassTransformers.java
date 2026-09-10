@@ -30,6 +30,7 @@ import io.pzstorm.storm.patch.fixes.ActionGroupSyncPatch;
 import io.pzstorm.storm.patch.fixes.ActionManagerPatch;
 import io.pzstorm.storm.patch.fixes.ActionStateContainerPatch;
 import io.pzstorm.storm.patch.fixes.AdvancedAnimatorMissingFolderPatch;
+import io.pzstorm.storm.patch.fixes.AnimalDataGrowWaterGuardPatch;
 import io.pzstorm.storm.patch.fixes.AnimalIgnoredTroughExpiryPatch;
 import io.pzstorm.storm.patch.fixes.AnimalWaterSourceFailoverPatch;
 import io.pzstorm.storm.patch.fixes.AnimalZoneContainmentPatch;
@@ -384,6 +385,7 @@ public class StormClassTransformers {
         registerTransformer(new IsoAnimalReattachBackToMomPatch());
         registerTransformer(new IsoAnimalUpdateNullDefGuardPatch());
         registerTransformer(new IsoAnimalCanClimbStairsNullDefGuardPatch());
+        registerTransformer(new AnimalDataGrowWaterGuardPatch());
         registerTransformer(new IsoMovingObjectIsPushedByForSeparateNullDefGuardPatch());
         registerTransformer(new IsoGridSquareGetRoomNullDefGuardPatch());
         registerTransformer(new BaseVehicleSavePatch());
