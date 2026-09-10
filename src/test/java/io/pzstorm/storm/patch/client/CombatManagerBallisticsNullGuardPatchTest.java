@@ -14,9 +14,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that {@link CombatManagerBallisticsNullGuardPatch} lands the null-controller skip in the
- * 3-arg {@code CombatManager.isHittableBallisticsTarget} and only there.
+ * 3-arg {@code CombatManager.isHittableBallisticsTarget} and in {@code calculateHitInfoList}, and
+ * nowhere else.
  *
- * <p>Detection signal: the inlined advice calls {@code BallisticsNullGuard.onNullController} via
+ * <p>Detection signal: each inlined advice calls its {@code BallisticsNullGuard} helper via
  * INVOKESTATIC on its null branch. Vanilla contains no such call, so seeing it after the transform
  * proves the advice landed; seeing none in the 4-arg overload — which shares the name — proves the
  * {@code takesArguments(3)} matcher didn't leak onto the caller.
@@ -27,12 +28,15 @@ class CombatManagerBallisticsNullGuardPatchTest implements UnitTest {
     private static final String HELPER_OWNER =
             "io/pzstorm/storm/advice/client/ballisticsnullguard/BallisticsNullGuard";
     private static final String HELPER_METHOD = "onNullController";
+    private static final String HIT_LIST_HELPER_METHOD = "onNullControllerHitList";
 
     private static final String METHOD = "isHittableBallisticsTarget";
     private static final String TARGET_DESC =
             "(Lzombie/core/physics/BallisticsController;FLzombie/iso/Vector3;)Z";
     private static final String SIBLING_DESC =
             "(Lzombie/characters/IsoGameCharacter;FFLzombie/iso/Vector3;)Z";
+    private static final String HIT_LIST = "calculateHitInfoList";
+    private static final String HIT_LIST_DESC = "(Lzombie/characters/IsoGameCharacter;)V";
 
     @Test
     void patchInjectsNullSkipIntoControllerOverloadOnly() throws Exception {
@@ -43,10 +47,10 @@ class CombatManagerBallisticsNullGuardPatchTest implements UnitTest {
 
         assertEquals(
                 0,
-                countHelperCallsInMethod(rawClass, METHOD, TARGET_DESC),
+                countHelperCallsInMethod(rawClass, METHOD, TARGET_DESC, HELPER_METHOD),
                 "Vanilla overload should not call " + HELPER_OWNER + "." + HELPER_METHOD);
         assertTrue(
-                countHelperCallsInMethod(transformed, METHOD, TARGET_DESC) >= 1,
+                countHelperCallsInMethod(transformed, METHOD, TARGET_DESC, HELPER_METHOD) >= 1,
                 "Patched overload must contain >=1 INVOKESTATIC "
                         + HELPER_OWNER
                         + "."
@@ -55,8 +59,28 @@ class CombatManagerBallisticsNullGuardPatchTest implements UnitTest {
 
         assertEquals(
                 0,
-                countHelperCallsInMethod(transformed, METHOD, SIBLING_DESC),
+                countHelperCallsInMethod(transformed, METHOD, SIBLING_DESC, HELPER_METHOD),
                 "Advice must not leak into the 4-arg IsoGameCharacter overload");
+    }
+
+    @Test
+    void patchInjectsNullSkipIntoHitListBuild() throws Exception {
+        byte[] rawClass = readClassBytes(TARGET_CLASS + ".class");
+        byte[] transformed = new CombatManagerBallisticsNullGuardPatch().transform(rawClass);
+
+        assertEquals(
+                0,
+                countHelperCallsInMethod(rawClass, HIT_LIST, HIT_LIST_DESC, HIT_LIST_HELPER_METHOD),
+                "Vanilla " + HIT_LIST + " should not call " + HIT_LIST_HELPER_METHOD);
+        assertTrue(
+                countHelperCallsInMethod(
+                                transformed, HIT_LIST, HIT_LIST_DESC, HIT_LIST_HELPER_METHOD)
+                        >= 1,
+                "Patched " + HIT_LIST + " must contain >=1 INVOKESTATIC " + HIT_LIST_HELPER_METHOD);
+        assertEquals(
+                0,
+                countHelperCallsInMethod(transformed, METHOD, TARGET_DESC, HIT_LIST_HELPER_METHOD),
+                "Hit-list advice must not leak into " + METHOD);
     }
 
     private byte[] readClassBytes(String resourcePath) throws Exception {
@@ -66,7 +90,8 @@ class CombatManagerBallisticsNullGuardPatchTest implements UnitTest {
         }
     }
 
-    private static int countHelperCallsInMethod(byte[] classBytes, String method, String desc) {
+    private static int countHelperCallsInMethod(
+            byte[] classBytes, String method, String desc, String helperMethod) {
         int[] hits = new int[1];
         new ClassReader(classBytes)
                 .accept(
@@ -91,7 +116,7 @@ class CombatManagerBallisticsNullGuardPatchTest implements UnitTest {
                                             boolean isInterface) {
                                         if (opcode == Opcodes.INVOKESTATIC
                                                 && HELPER_OWNER.equals(owner)
-                                                && HELPER_METHOD.equals(mName)) {
+                                                && helperMethod.equals(mName)) {
                                             hits[0]++;
                                         }
                                     }
