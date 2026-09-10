@@ -69,6 +69,8 @@ import io.pzstorm.storm.patch.fixes.SitOnFurnitureBoxedInChairPatch;
 import io.pzstorm.storm.patch.fixes.SpriteConfigFixPatch;
 import io.pzstorm.storm.patch.fixes.TransactionManagerPatch;
 import io.pzstorm.storm.patch.fixes.TranslatorPatch;
+import io.pzstorm.storm.patch.fixes.VehiclesDbChunkKeyPatch;
+import io.pzstorm.storm.patch.fixes.VehiclesDbChunkKeyRepairPatch;
 import io.pzstorm.storm.patch.fixes.WorldMapVisitedServerAllKnownPatch;
 import io.pzstorm.storm.patch.lua.LuaExposerDumpPatch;
 import io.pzstorm.storm.patch.lua.LuaManagerPatch;
@@ -431,6 +433,10 @@ public class StormClassTransformers {
             registerTransformer(new AdvancedAnimatorMissingFolderPatch());
             registerTransformer(new ActionGroupSyncPatch());
             registerTransformer(new AssetManagerSyncPatch());
+            // vehicles.db rows keyed by a stale/recycled chunk pointer never load again at
+            // the vehicle's real position; file by x,y and repair misfiled rows at boot.
+            registerTransformer(new VehiclesDbChunkKeyPatch());
+            registerTransformer(new VehiclesDbChunkKeyRepairPatch());
         }
         registerTransformer(new ServerCellUnloadPatch());
         registerTransformer(new ServerLOSUpdatePatch());
