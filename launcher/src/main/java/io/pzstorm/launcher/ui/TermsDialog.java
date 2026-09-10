@@ -102,10 +102,10 @@ public final class TermsDialog extends JDialog {
         if (updated) {
             return "<html><b>The Terms of Use &amp; Privacy Policy have changed</b> (now version "
                     + version
-                    + ").<br>Please review the new version and accept it to keep using the Storm"
-                    + " Launcher.</html>";
+                    + ").<br>Please review the new version and accept it to keep using One/Life"
+                    + " Core.</html>";
         }
-        return "<html><b>Welcome to the Storm Launcher.</b><br>Please read and accept the Terms of"
+        return "<html><b>Welcome to One/Life Core.</b><br>Please read and accept the Terms of"
                 + " Use &amp; Privacy Policy (version "
                 + version
                 + ") before continuing.</html>";

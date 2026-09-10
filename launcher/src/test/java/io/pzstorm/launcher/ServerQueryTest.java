@@ -101,10 +101,17 @@ class ServerQueryTest {
 
         assertEquals(jvm.toString(), command.get(0));
         assertTrue(command.contains("-Djava.library.path=win64/;."));
+        assertTrue(command.contains("-D" + GameLaunch.HANDOFF_PROPERTY + "=false"));
 
         int cp = command.indexOf("-cp");
         assertTrue(cp > 0, "child must be launched with an explicit classpath");
-        assertEquals(".:projectzomboid.jar:/mods/storm/42/lib/*", command.get(cp + 1));
+        boolean windows = GameLaunch.isWindowsJvm(jvm);
+        String expectedStormPath =
+                GameLaunch.pathArgFor(jvm, Paths.get("/mods/storm/42/lib"))
+                        + (windows ? "\\*" : "/*");
+        assertEquals(
+                String.join(windows ? ";" : ":", ".", "projectzomboid.jar", expectedStormPath),
+                command.get(cp + 1));
 
         List<String> tail = command.subList(command.size() - 5, command.size());
         assertEquals(

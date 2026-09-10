@@ -41,6 +41,9 @@ public class StormBootstrapper {
      */
     private static final String LAUNCHER_HANDOFF_PROPERTY = "storm.launcher.handoff";
 
+    /** One/Life never transmits Storm's optional server-start snapshot. */
+    private static final String DISABLE_ANALYTICS_PROPERTY = "DISABLE_ANALYTICS";
+
     /** Stored from premain so Storm core can retrieve it via reflection. */
     public static volatile Instrumentation instrumentation;
 
@@ -54,6 +57,8 @@ public class StormBootstrapper {
     }
 
     public static void premain(String agentArgs, Instrumentation inst) {
+        // Set this before resolving the CDN-updated core so the privacy guarantee survives updates.
+        System.setProperty(DISABLE_ANALYTICS_PROPERTY, "true");
         System.out.println("[StormAgent] Agent initializing...");
         instrumentation = inst;
 

@@ -22,16 +22,14 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
- * Sponsored card for the bottom of the detail pane: After The Fall (PvPvE), with a Discord invite
- * link and a one-click "Play on ATF" profile setup (the window owns the profile flow; see the
- * constructor). Deliberately no live player count: polling the server would send the user's IP to a
- * third party they never chose, so the card goes on the network only when a link is clicked.
+ * One/Life community card with a Discord invite and a one-click server profile setup. Deliberately
+ * no live player count: the card goes on the network only when a link or Play is clicked.
  */
 public final class SponsorPanel extends JPanel {
 
-    public static final String ATF_HOST = "40.160.20.9";
-    public static final int ATF_PORT = 16261;
-    private static final String DISCORD_URL = "https://discord.gg/after-the-fall";
+    public static final String ONE_LIFE_HOST = "172.240.18.253";
+    public static final int ONE_LIFE_PORT = 16261;
+    private static final String DISCORD_URL = "https://discord.gg/qccG89rvzT";
 
     /**
      * Logical logo edge. On a HiDPI display Swing scales this up, so the sponsor's art should be
@@ -39,10 +37,10 @@ public final class SponsorPanel extends JPanel {
      */
     private static final int LOGO_SIZE = 56;
 
-    private final JLabel playersLabel = new JLabel("PvPvE server");
+    private final JLabel playersLabel = new JLabel("B42 PvE  ·  24/7 persistent world");
 
     /**
-     * @param playOnAtf runs when "Play on ATF" is clicked; the launcher window owns profile
+     * @param playOnAtf runs when "Play One/Life" is clicked; the launcher window owns profile
      *     bookkeeping and the join flow, so the card only reports the click.
      */
     public SponsorPanel(Runnable playOnAtf) {
@@ -53,12 +51,11 @@ public final class SponsorPanel extends JPanel {
                         BorderFactory.createLineBorder(StormTheme.BORDER),
                         BorderFactory.createEmptyBorder(10, 12, 10, 12)));
 
-        JLabel kicker = new JLabel("STORM LAUNCHER SPONSORED BY");
+        JLabel kicker = new JLabel("FEATURED COMMUNITY");
         kicker.setFont(StormTheme.displayFont(Font.BOLD, 13f));
-        // cool steel-blue: complements the theme's warm gold links instead of competing with them
-        kicker.setForeground(new java.awt.Color(132, 178, 196));
+        kicker.setForeground(StormTheme.ACCENT_HOVER);
 
-        JLabel name = new JLabel("After The Fall");
+        JLabel name = new JLabel("ONE/LIFE");
         name.setFont(StormTheme.displayFont(Font.BOLD, 16f));
         name.setForeground(StormTheme.HEADER_TEXT);
 
@@ -68,9 +65,9 @@ public final class SponsorPanel extends JPanel {
         JPanel links = new JPanel();
         links.setLayout(new BoxLayout(links, BoxLayout.X_AXIS));
         links.setOpaque(false);
-        links.add(link("Play on ATF", playOnAtf));
+        links.add(link("Play One/Life", playOnAtf));
         links.add(Box.createHorizontalStrut(14));
-        links.add(link("Join the ATF Discord", () -> openLink(DISCORD_URL)));
+        links.add(link("Discord", () -> openLink(DISCORD_URL)));
 
         JPanel text = new JPanel();
         text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
@@ -152,7 +149,7 @@ public final class SponsorPanel extends JPanel {
         }
 
         private static BufferedImage loadLogo() {
-            try (InputStream in = LogoBadge.class.getResourceAsStream("atf-logo.png")) {
+            try (InputStream in = LogoBadge.class.getResourceAsStream("one-life-icon.png")) {
                 return in == null ? null : ImageIO.read(in);
             } catch (Exception e) {
                 return null;
@@ -175,7 +172,7 @@ public final class SponsorPanel extends JPanel {
                 g2.drawRoundRect(0, 0, LOGO_SIZE - 1, LOGO_SIZE - 1, 12, 12);
                 g2.setFont(StormTheme.displayFont(Font.BOLD, 17f));
                 java.awt.FontMetrics fm = g2.getFontMetrics();
-                String text = "ATF";
+                String text = "1/L";
                 int x = (LOGO_SIZE - fm.stringWidth(text)) / 2;
                 int y = (LOGO_SIZE - fm.getHeight()) / 2 + fm.getAscent();
                 g2.drawString(text, x, y);

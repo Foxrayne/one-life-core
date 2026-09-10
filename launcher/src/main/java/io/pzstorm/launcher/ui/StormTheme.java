@@ -15,36 +15,36 @@ import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.text.JTextComponent;
 
 /**
- * Shared dark theme for every launcher window, ported from the ATF Economy in-game palette (warm
- * charcoal surfaces, cream text, gold accent). The launcher jar must stay dependency-free, so this
- * is a hand-rolled Metal theme plus UIManager overrides rather than a third-party look-and-feel.
- * Typography rides the OS: the native UI sans for text, its monospace sibling for log panes.
+ * Shared dark theme for every launcher window, using One/Life's black, magenta and violet palette.
+ * The launcher jar must stay dependency-free, so this is a hand-rolled Metal theme plus UIManager
+ * overrides rather than a third-party look-and-feel. Typography rides the OS: the native UI sans
+ * for text, its monospace sibling for log panes.
  */
 public final class StormTheme {
 
-    public static final Color BG = new Color(24, 23, 21);
-    public static final Color BG_INSET = new Color(20, 19, 17);
-    public static final Color BORDER = new Color(41, 41, 38);
-    public static final Color DIVIDER = new Color(46, 46, 43);
-    public static final Color HEADER_BG = new Color(16, 15, 14);
-    public static final Color HEADER_TEXT = new Color(245, 245, 235);
-    public static final Color TEXT = new Color(237, 235, 222);
-    public static final Color TEXT_DIM = new Color(158, 158, 145);
-    public static final Color TEXT_FAINT = new Color(115, 115, 107);
-    public static final Color ROW_ALT = new Color(28, 26, 24);
-    public static final Color ROW_HOVER = new Color(36, 37, 23);
-    public static final Color ROW_SELECTED = new Color(67, 71, 35);
-    public static final Color ACCENT = new Color(222, 168, 51);
-    public static final Color ACCENT_HOVER = new Color(233, 186, 84);
-    public static final Color ACCENT_PRESSED = new Color(196, 146, 38);
-    public static final Color ACCENT_TEXT = new Color(20, 18, 13);
-    public static final Color ACCENT_DIM = new Color(77, 59, 20);
-    public static final Color BTN_BG = new Color(33, 31, 28);
-    public static final Color BTN_BG_HOVER = new Color(46, 46, 26);
-    public static final Color BTN_BORDER = new Color(56, 56, 51);
-    public static final Color BTN_BORDER_HOVER = new Color(115, 115, 56);
-    public static final Color BTN_TEXT = new Color(219, 219, 204);
-    public static final Color BTN_TEXT_DISABLED = new Color(102, 102, 97);
+    public static final Color BG = new Color(12, 9, 15);
+    public static final Color BG_INSET = new Color(8, 6, 11);
+    public static final Color BORDER = new Color(57, 30, 67);
+    public static final Color DIVIDER = new Color(69, 31, 77);
+    public static final Color HEADER_BG = new Color(7, 5, 10);
+    public static final Color HEADER_TEXT = new Color(250, 247, 252);
+    public static final Color TEXT = new Color(235, 226, 239);
+    public static final Color TEXT_DIM = new Color(171, 151, 179);
+    public static final Color TEXT_FAINT = new Color(112, 91, 120);
+    public static final Color ROW_ALT = new Color(18, 11, 22);
+    public static final Color ROW_HOVER = new Color(40, 13, 44);
+    public static final Color ROW_SELECTED = new Color(69, 18, 78);
+    public static final Color ACCENT = new Color(230, 0, 105);
+    public static final Color ACCENT_HOVER = new Color(255, 67, 151);
+    public static final Color ACCENT_PRESSED = new Color(180, 0, 116);
+    public static final Color ACCENT_TEXT = new Color(255, 249, 253);
+    public static final Color ACCENT_DIM = new Color(80, 7, 59);
+    public static final Color BTN_BG = new Color(29, 14, 34);
+    public static final Color BTN_BG_HOVER = new Color(56, 15, 63);
+    public static final Color BTN_BORDER = new Color(80, 35, 90);
+    public static final Color BTN_BORDER_HOVER = new Color(171, 26, 149);
+    public static final Color BTN_TEXT = new Color(235, 226, 239);
+    public static final Color BTN_TEXT_DISABLED = new Color(103, 85, 110);
     public static final Color DANGER = new Color(219, 87, 87);
     public static final Color SUCCESS = new Color(140, 219, 115);
 

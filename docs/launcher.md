@@ -264,6 +264,11 @@ Design points:
 
 ## Self-update: the CDN channel
 
+> **One/Life fork:** launcher self-update is disabled in branded builds because the upstream
+> launcher would replace One/Life artwork and server defaults. Launcher updates are delivered with
+> the One/Life Workshop item until a One/Life-controlled update endpoint is configured. The
+> underlying Storm core update channel remains enabled.
+
 Launcher releases are decoupled from workshop publishes: the launcher has its
 own version (`launcherVersion` in `gradle.properties`, shown in the window
 title and by `--version`, independent of the Storm/game version) and its own

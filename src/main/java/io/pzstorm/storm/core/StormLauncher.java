@@ -100,12 +100,6 @@ public class StormLauncher {
                     .getDeclaredMethod("registerEventHandler", Class.class)
                     .invoke(null, perfSandboxApplier);
 
-            Class<?> startupAnalytics =
-                    classLoader.loadClass("io.pzstorm.storm.diagnostics.StormStartupAnalytics");
-            eventDispatcher
-                    .getDeclaredMethod("registerEventHandler", Class.class)
-                    .invoke(null, startupAnalytics);
-
             // Game-port HTTP server (TCP on the game's UDP port, for game communication with
             // clients). The @SubscribeEvent on GamePortHttpServer starts it on OnServerStarted,
             // once GameServer.defaultPort is final.

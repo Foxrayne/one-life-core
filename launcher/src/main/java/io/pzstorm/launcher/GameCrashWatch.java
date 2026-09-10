@@ -1,6 +1,10 @@
 package io.pzstorm.launcher;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -13,6 +17,8 @@ import java.util.function.Consumer;
  */
 public final class GameCrashWatch {
 
+    private static final int LOG_TAIL_BYTES = 1024 * 1024;
+
     /** Printed by HotSpot's fatal error handler when a native allocation fails. */
     static final String NATIVE_OOM_MARKER =
             "There is insufficient memory for the Java Runtime Environment";
@@ -24,8 +30,8 @@ public final class GameCrashWatch {
             "Project Zomboid closed because your computer ran out of memory.\n\n"
                     + "CLOSE EVERYTHING ELSE on this PC — web browsers, Discord, streaming"
                     + " apps, other games — then join again.\n\n"
-                    + "If it keeps happening, lower Game memory in Settings and use Send Logs"
-                    + " to ask for help.";
+                    + "If it keeps happening, lower Game memory in Settings and ask for help in"
+                    + " the One/Life Discord.";
 
     /** How the alert reaches the player; the UI registers a dialog, core code stays Swing-free. */
     private static volatile Consumer<String> alertSink = message -> {};
@@ -58,7 +64,7 @@ public final class GameCrashWatch {
 
     static void inspect(int exitCode, Path gameLog) {
         try {
-            String tail = new String(LogReport.tail(gameLog), StandardCharsets.UTF_8);
+            String tail = new String(tail(gameLog), StandardCharsets.UTF_8);
             if (!diedOfMemory(exitCode, tail)) {
                 return;
             }
@@ -70,6 +76,20 @@ public final class GameCrashWatch {
             alertSink.accept(OOM_ALERT);
         } catch (Exception e) {
             Log.warn("Could not inspect the game log after exit: " + e.getMessage());
+        }
+    }
+
+    /** Reads only the recent end of the local game log; nothing is transmitted. */
+    private static byte[] tail(Path file) throws IOException {
+        long size = Files.size(file);
+        if (size <= LOG_TAIL_BYTES) {
+            return Files.readAllBytes(file);
+        }
+        try (SeekableByteChannel channel = Files.newByteChannel(file);
+                InputStream in =
+                        java.nio.channels.Channels.newInputStream(
+                                channel.position(size - LOG_TAIL_BYTES))) {
+            return in.readAllBytes();
         }
     }
 

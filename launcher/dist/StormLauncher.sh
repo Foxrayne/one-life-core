@@ -1,5 +1,5 @@
 #!/bin/sh
-# Storm Launcher — pre-game UI for joining servers and syncing java mods.
+# One/Life Core — pre-game UI for joining servers and syncing Java mods.
 # When this script lives inside the Steam workshop item
 # (steamapps/workshop/content/108600/<id>/mods/storm/launcher/) the game install
 # sits seven directories up in the same Steam library; use its bundled JRE.

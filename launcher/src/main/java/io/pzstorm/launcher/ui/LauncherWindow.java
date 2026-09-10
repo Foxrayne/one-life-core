@@ -56,8 +56,11 @@ public final class LauncherWindow extends JFrame {
     private final JLabel detailAutoConnect = new JLabel(" ");
 
     public LauncherWindow(LauncherConfig config) {
-        super("Storm Launcher " + LauncherInfo.version());
+        super("One/Life Core " + LauncherInfo.version());
         this.config = config;
+        if (OneLifeBrand.iconImage() != null) {
+            setIconImage(OneLifeBrand.iconImage());
+        }
         // The shutdown hook in LauncherMain kills the tracked game on JVM exit so Steam's Stop
         // takes the game down with the launcher. A user-initiated window close is different — the
         // game is meant to keep running (see the "you can keep this window open" log line) — so
@@ -93,7 +96,7 @@ public final class LauncherWindow extends JFrame {
                                                 "Out of memory",
                                                 JOptionPane.ERROR_MESSAGE)));
         Log.info(
-                "Storm Launcher "
+                "One/Life Core "
                         + LauncherInfo.version()
                         + " ready. Config: "
                         + LauncherPaths.configFile());
@@ -162,24 +165,20 @@ public final class LauncherWindow extends JFrame {
                         BorderFactory.createMatteBorder(0, 0, 1, 0, StormTheme.DIVIDER),
                         BorderFactory.createEmptyBorder(12, 16, 12, 12)));
 
-        JLabel wordmark = new JLabel("STORM");
-        wordmark.setFont(StormTheme.displayFont(Font.BOLD, 20f));
-        wordmark.setForeground(StormTheme.ACCENT);
-        JLabel sub = new JLabel("LAUNCHER");
-        sub.setFont(StormTheme.displayFont(Font.PLAIN, 20f));
-        sub.setForeground(StormTheme.HEADER_TEXT);
+        JLabel wordmark = OneLifeBrand.headerLabel();
         JLabel version = new JLabel(LauncherInfo.version());
         version.setFont(StormTheme.font(Font.PLAIN, 11f));
         version.setForeground(StormTheme.TEXT_FAINT);
 
         header.add(wordmark);
-        header.add(Box.createHorizontalStrut(6));
-        header.add(sub);
         header.add(Box.createHorizontalStrut(10));
         header.add(version);
+        JLabel poweredBy = new JLabel("POWERED BY STORM");
+        poweredBy.setFont(StormTheme.displayFont(Font.PLAIN, 9f));
+        poweredBy.setForeground(StormTheme.TEXT_FAINT);
+        header.add(Box.createHorizontalStrut(10));
+        header.add(poweredBy);
         header.add(Box.createHorizontalGlue());
-        header.add(ghost("Send Logs", this::onSendLogs));
-        header.add(Box.createHorizontalStrut(4));
         header.add(ghost("Privacy", this::onPrivacy));
         header.add(Box.createHorizontalStrut(4));
         header.add(ghost("Settings", this::onSettings));
@@ -246,7 +245,7 @@ public final class LauncherWindow extends JFrame {
                     joinForceButton,
                     Box.createVerticalGlue(),
                     Box.createVerticalStrut(14),
-                    new SponsorPanel(this::onPlayOnAtf)
+                    new SponsorPanel(this::onPlayOnOneLife)
                 }) {
             if (c instanceof javax.swing.JComponent) {
                 ((javax.swing.JComponent) c).setAlignmentX(LEFT_ALIGNMENT);
@@ -420,11 +419,6 @@ public final class LauncherWindow extends JFrame {
         saveConfig();
     }
 
-    /** Uploads metadata + zipped launcher/game/Zomboid/Storm logs to the Storm team's Discord. */
-    private void onSendLogs() {
-        SendLogsDialog.open(this, config);
-    }
-
     /** Re-reads the accepted Terms of Use & Privacy Policy. */
     private void onPrivacy() {
         TermsDialog.view(this, PrivacyPolicy.current());
@@ -446,14 +440,14 @@ public final class LauncherWindow extends JFrame {
     }
 
     /**
-     * Sponsored-card one-click flow: offer any existing After The Fall profile first, else create
-     * one pre-filled with the server's address (no access password) so the player only enters
-     * character credentials, then save it and connect.
+     * One/Life one-click flow: offer any existing One/Life profile first, else create one
+     * pre-filled with the server's address (no access password) so the player only enters character
+     * credentials, then save it and connect.
      */
-    private void onPlayOnAtf() {
+    private void onPlayOnOneLife() {
         java.util.List<ServerProfile> existing = new java.util.ArrayList<>();
         for (ServerProfile p : config.servers) {
-            if (p.host.equals(SponsorPanel.ATF_HOST) && p.port == SponsorPanel.ATF_PORT) {
+            if (p.host.equals(SponsorPanel.ONE_LIFE_HOST) && p.port == SponsorPanel.ONE_LIFE_PORT) {
                 existing.add(p);
             }
         }
@@ -468,13 +462,13 @@ public final class LauncherWindow extends JFrame {
             JScrollPane scroll = new JScrollPane(picker);
             scroll.setBorder(BorderFactory.createLineBorder(StormTheme.BORDER));
             scroll.getViewport().setBackground(StormTheme.BG_INSET);
-            Object[] message = {"Existing After The Fall profiles", scroll};
+            Object[] message = {"Existing One/Life profiles", scroll};
             String[] options = {"Play", "Create new profile", "Cancel"};
             int choice =
                     JOptionPane.showOptionDialog(
                             this,
                             message,
-                            "Play on After The Fall",
+                            "Play on One/Life",
                             JOptionPane.DEFAULT_OPTION,
                             JOptionPane.QUESTION_MESSAGE,
                             null,
@@ -493,9 +487,9 @@ public final class LauncherWindow extends JFrame {
             }
         }
         ServerProfile profile = new ServerProfile();
-        profile.name = "After The Fall";
-        profile.host = SponsorPanel.ATF_HOST;
-        profile.port = SponsorPanel.ATF_PORT;
+        profile.name = "One/Life";
+        profile.host = SponsorPanel.ONE_LIFE_HOST;
+        profile.port = SponsorPanel.ONE_LIFE_PORT;
         if (AtfSetupDialog.setup(this, profile)) {
             ServerStore.save(config, profile);
             config.servers.add(profile);
@@ -545,11 +539,7 @@ public final class LauncherWindow extends JFrame {
                             } catch (SteamRestartRequiredException e) {
                                 Log.error("Launch failed", e);
                                 SwingUtilities.invokeLater(
-                                        () ->
-                                                SteamRestartDialog.show(
-                                                        this,
-                                                        e.summary(),
-                                                        () -> SendLogsDialog.open(this, config)));
+                                        () -> SteamRestartDialog.show(this, e.summary(), null));
                             } catch (Exception e) {
                                 Log.error("Launch failed", e);
                                 SwingUtilities.invokeLater(

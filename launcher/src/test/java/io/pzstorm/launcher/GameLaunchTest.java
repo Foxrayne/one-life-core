@@ -248,6 +248,39 @@ class GameLaunchTest {
     }
 
     @Test
+    void oneLifeJoinWithoutServerModListTriesOptionalFrontendBranding() throws IOException {
+        ServerProfile profile = new ServerProfile();
+        profile.host = GameLaunch.ONE_LIFE_HOST;
+
+        GameLaunch.LaunchPlan plan = GameLaunch.plan(config(), profile, null, null);
+
+        assertTrue(
+                plan.command.contains(
+                        "-D"
+                                + GameLaunch.JOIN_FILE_PROPERTY
+                                + "="
+                                + LauncherPaths.joinHandoffFile().toAbsolutePath()));
+        java.util.Properties stored = new java.util.Properties();
+        try (java.io.Reader reader =
+                Files.newBufferedReader(
+                        LauncherPaths.joinHandoffFile(), java.nio.charset.StandardCharsets.UTF_8)) {
+            stored.load(reader);
+        }
+        assertEquals(
+                GameLaunch.ONE_LIFE_FRONTEND_MOD,
+                stored.getProperty(GameLaunch.WORKSHOP_MODS_PROPERTY));
+    }
+
+    @Test
+    void realServerModListRemainsAuthoritativeForOneLife() {
+        ServerProfile profile = new ServerProfile();
+        profile.host = GameLaunch.ONE_LIFE_HOST;
+        List<String> serverMods = List.of("WorldEssentials", "OneLifeFrontendBranding");
+
+        assertEquals(serverMods, GameLaunch.oneLifeFallbackMods(profile, serverMods));
+    }
+
+    @Test
     void clientPerfFixesDefaultOnAndOverridable() throws IOException {
         GameLaunch.LaunchPlan plan = GameLaunch.plan(config(), null, null);
         assertTrue(plan.command.contains("-D" + GameLaunch.CLIENT_PERF_PROPERTY + "=true"));

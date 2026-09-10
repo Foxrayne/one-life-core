@@ -13,9 +13,9 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 
 /**
- * One-click setup for the sponsored After The Fall server: the profile arrives pre-filled with the
- * server's name, address, and (empty) access password, so the player only picks the credentials
- * that create their in-game character. On accept the caller saves the profile and connects.
+ * One-click setup for the One/Life server: the profile arrives pre-filled with the server's name,
+ * address, and (empty) access password, so the player only picks the credentials that create their
+ * in-game character. On accept the caller saves the profile and connects.
  */
 public final class AtfSetupDialog extends JDialog {
 
@@ -24,7 +24,7 @@ public final class AtfSetupDialog extends JDialog {
     private boolean accepted;
 
     private AtfSetupDialog(Window owner, ServerProfile profile) {
-        super(owner, "Play on After The Fall", ModalityType.APPLICATION_MODAL);
+        super(owner, "Play on One/Life", ModalityType.APPLICATION_MODAL);
         username.setText(profile.username);
         accountPassword.setText(profile.accountPassword);
 
@@ -34,7 +34,7 @@ public final class AtfSetupDialog extends JDialog {
         int row = 0;
         JLabel note =
                 new JLabel(
-                        "<html>Enter a username and password for playing on After The Fall."
+                        "<html>Enter a username and password for playing on One/Life."
                                 + "<br>They create your character on the server the first time you"
                                 + " join.</html>");
         note.setForeground(StormTheme.TEXT_DIM);

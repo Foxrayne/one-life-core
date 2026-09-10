@@ -20,4 +20,5 @@ Versions and Steam Workshop IDs come from gradle.properties. Maven coordinates: 
 
 Reference. Architecture (bootstrap chain, event system, mod loading, mod entry point): docs/mod-author-guide.md. JVM flags, sandbox options: docs/server-configuration.md. What Storm patches in PZ (behavior, perf, bug fixes): docs/what-storm-changes.md. HTTP endpoints: docs/http-api.md. Prometheus metrics (adding new ones): docs/metrics.md. Installation paths (Workshop, dedicated server, local dev): docs/installation.md. Storm Launcher (pre-game UI, client mod sync, launcher/ subproject — no PZ classes allowed in it): docs/launcher.md.
 
-Metadata. To disable metadata analytics, add -DDISABLE_ANALYTICS=true.
+One/Life builds do not include startup analytics; the bootstrap also forces
+`-DDISABLE_ANALYTICS=true` before loading a CDN-updated Storm core.

@@ -24,31 +24,31 @@ def getWorkshopId = {
 
 def getWorkshopTitle = {
 	switch (env) {
-		case 'prod':  return 'Storm Mod Framework b42 by Gus Puffy'
-		case 'stage': return '[STAGE] Storm Mod Framework b42 by Gus Puffy'
-		default: return '[DEV] Storm Mod Framework b42 by Gus Puffy'
+		case 'prod':  return 'One/Life Core'
+		case 'stage': return '[STAGE] One/Life Core'
+		default: return '[DEV] One/Life Core'
 	}
 }
 
 def getModId = {
 	switch (env) {
-		case 'prod':  return "${rootProject.name}-core-b42"
-		case 'stage': return "${rootProject.name}-core-b42-stage"
-		default: return "${rootProject.name}-core-b42-dev"
+		case 'prod':  return 'one-life-core-b42'
+		case 'stage': return 'one-life-core-b42-stage'
+		default: return 'one-life-core-b42-dev'
 	}
 }
 
 def getModName = {
 	switch (env) {
-		case 'prod':  return 'Storm - Core b42 by Gus Puffy'
-		case 'stage': return '[STAGE] Storm - Core b42 by Gus Puffy'
-		default: return '[DEV] Storm - Core b42 by Gus Puffy'
+		case 'prod':  return 'One/Life Core'
+		case 'stage': return '[STAGE] One/Life Core'
+		default: return '[DEV] One/Life Core'
 	}
 }
 
 def getWorkshopVisibility = {
 	switch (env) {
-		case 'prod':  return '0'
+		case 'prod':  return '3'
 		default: return '3'
 	}
 }
@@ -77,27 +77,28 @@ def steamLoginArgs = {
 	return [username]
 }
 
-String workshopDescription = '''[b]Storm[/b] is a [b]Java mod loader and modding framework[/b] for [i]Project Zomboid[/i] (Build 42+) that uses [b]Byte Buddy[/b] bytecode instrumentation to extend the game without touching its source.
+String workshopDescription = '''[h1]ONE/LIFE 24/7 - B42 PvE[/h1]
 
-Vanilla client compatibility is maintained so that players don't have to hook up any modding frameworks. The extensibility of Java modding on the server side allows you to create feature rich mods without having to modify Java on the client side.
+A heavily modded Project Zomboid server with a player economy, custom content, dangerous zones and plenty to work towards.
 
-Portable and completely deployed through Steam Workshop.
+[h2]DISCORD[/h2]
+[url=https://discord.gg/qccG89rvzT]https://discord.gg/qccG89rvzT[/url]
 
-Updated to 42.20.2
+Join for the rules, server updates, support, suggestions and event announcements.
 
-Fixed TIS TileManager placement bug.
-Fixed placed items not able to be placed or picked up bug.
-Added headroom cap above hard coded 101 for incoming connections to fix "Getting Server Info..." dropped connections.
+[h2]ABOUT ONE/LIFE[/h2]
 
-[url=https://github.com/guspuffygit/project-zomboid-storm]Installation and Configuration Documentation[/url]
+Despite the name, this is not a one-life or permadeath server. One/Life is simply the name of the community.
 
-[url=https://github.com/guspuffygit/project-zomboid-storm/blob/main/launcher/src/main/resources/privacy-policy.txt]Terms of Use & Privacy Policy[/url] — by playing on a server that runs Storm you agree to these terms. Server operators: please link this document in your server rules, description or welcome message so your players can find it.
+The main server runs 24/7 and offers a persistent world where you can build a home, open a shop, collect vehicles, join a faction, explore new areas or take on the more dangerous parts of the map.
+
+There is plenty to keep you busy, whether you are new to Project Zomboid or have thousands of hours. Expect a large mod list, lots of zombies, regular server events, custom systems and long-term progression.
+
+[h2]CONNECT[/h2]
+[b]172.240.18.253:16261[/b]
 
 [hr][/hr]
-[url=https://ko-fi.com/guspuffy][img]https://i.imgur.com/NVyFJeG.png[/img][/url]
-
-[h2]Sponsors[/h2]
-[b][url=https://discord.gg/after-the-fall]After The Fall[/url][/b] — The #1 multiplayer server in the world
+[b]One/Life Core[/b] is the server framework and branded launcher for the One/Life community. Based on [url=https://github.com/guspuffygit/project-zomboid-storm]Project Zomboid Storm[/url].
 [hr][/hr]'''
 
 def os = OperatingSystem.current()
@@ -380,7 +381,7 @@ tasks.register('writeModInfo') {
 
 	inputs.property("name", getModName())
 	inputs.property("id", getModId())
-	inputs.property("description", 'Storm core mod loader for b42')
+	inputs.property("description", 'One/Life Core server framework for Project Zomboid Build 42')
 	inputs.property("url", 'url')
 	inputs.property("modversion", project.version.toString())
 
@@ -390,8 +391,8 @@ tasks.register('writeModInfo') {
 		def f = outputFile.get().asFile
 		f.text = """\
 			name=${inputs.properties['name']}
-			author=SentientSimulations
-			url=https://github.com/guspuffygit/project-zomboid-java-mods
+			author=One/Life
+			url=https://discord.gg/qccG89rvzT
 			poster=poster.png
 			description=${inputs.properties['description']}
 			id=${inputs.properties['id']}
@@ -735,7 +736,13 @@ tasks.register('uploadWorkshop', Exec) {
 	standardInput = System.in
 
 	doFirst {
-		def steamcmdPath = "${System.getProperty('user.home')}/Steam/steamcmd.sh"
+		def defaultSteamcmdPath = os.isWindows()
+				? "${System.getProperty('user.home')}/SteamCMD/steamcmd.exe"
+				: "${System.getProperty('user.home')}/Steam/steamcmd.sh"
+		def steamcmdPath = getLocalProperty('steamcmdPath', defaultSteamcmdPath).get()
+		if (!file(steamcmdPath).exists()) {
+			throw new GradleException("steamcmd not found at ${steamcmdPath}; set steamcmdPath in local.properties")
+		}
 		commandLine([steamcmdPath, '+login'] + steamLoginArgs() + [
 			'+workshop_build_item',
 			layout.buildDirectory.file('workshop.vdf').get().asFile.absolutePath,

@@ -242,6 +242,9 @@ public final class ServerModList {
         // The game's own vmArgs carry java.library.path and zomboid.steam, which is what lets the
         // RakNet and Steam natives load.
         command.addAll(gameJson.effectiveVmArgs(windows ? "Windows" : "", "10.0.99999"));
+        // ProjectZomboid64.json may contain the bootstrap agent users add to open the launcher.
+        // This is an internal probe JVM, so never let that agent hand back to another launcher.
+        command.add("-D" + GameLaunch.HANDOFF_PROPERTY + "=false");
         GameLaunch.addChildEncodingArgs(command);
         command.add("-cp");
         List<String> classpath = new ArrayList<>(gameJson.classpath);

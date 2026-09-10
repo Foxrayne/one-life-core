@@ -101,7 +101,7 @@ public final class LauncherConfig {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put(
                 "_note",
-                "Storm Launcher config. Servers and all passwords live in the game's own"
+                "One/Life Core config. Servers and all passwords live in the game's own"
                         + " saved-server database (Zomboid/db/ServerListSteam.db); entries here"
                         + " only carry launcher extras, joined by host:port:username.");
         map.put("gameDir", gameDir);

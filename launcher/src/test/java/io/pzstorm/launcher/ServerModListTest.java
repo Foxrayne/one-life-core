@@ -92,8 +92,15 @@ class ServerModListTest {
 
         int cp = command.indexOf("-cp");
         assertTrue(cp > 0, "child must be launched with an explicit classpath");
-        assertEquals(".:projectzomboid.jar:/mods/storm/42/lib/*", command.get(cp + 1));
+        boolean windows = GameLaunch.isWindowsJvm(jvm);
+        String expectedStormPath =
+                GameLaunch.pathArgFor(jvm, Paths.get("/mods/storm/42/lib"))
+                        + (windows ? "\\*" : "/*");
+        assertEquals(
+                String.join(windows ? ";" : ":", ".", "projectzomboid.jar", expectedStormPath),
+                command.get(cp + 1));
         assertTrue(
                 command.contains("-Dzomboid.steam=1"), "the probe logs in over Steam networking");
+        assertTrue(command.contains("-D" + GameLaunch.HANDOFF_PROPERTY + "=false"));
     }
 }

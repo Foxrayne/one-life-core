@@ -55,7 +55,7 @@ class WorkshopUpdateTest {
         assertTrue(blocker.summary().contains("2 of 67"));
         assertTrue(blocker.summary().contains("3752227135, 3671847630"));
         assertTrue(blocker.getMessage().contains("Restart Steam"));
-        assertTrue(blocker.getMessage().contains("Send Logs"));
+        assertTrue(blocker.getMessage().contains("One/Life Discord"));
     }
 
     @Test

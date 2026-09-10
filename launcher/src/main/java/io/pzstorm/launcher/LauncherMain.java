@@ -239,7 +239,7 @@ public final class LauncherMain {
         String summary =
                 "Steam refused to update all 3 workshop item(s) this server needs, so the join"
                         + " was cancelled — the game would only get stuck at its workshop screen.";
-        Runnable sendLogs = () -> System.out.println("[demo] Send Logs clicked");
+        Runnable sendLogs = null;
         switch (variant) {
             case "manual":
                 SteamRestartDialog.show(null, summary, log -> null, false, sendLogs);

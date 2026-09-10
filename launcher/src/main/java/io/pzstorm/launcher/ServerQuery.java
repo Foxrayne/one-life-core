@@ -279,6 +279,9 @@ public final class ServerQuery {
         // The game's own vmArgs carry java.library.path, which is what lets the RakNet natives
         // load; the child clears zomboid.steam itself so the connect stays a plain UDP one.
         command.addAll(gameJson.effectiveVmArgs(windows ? "Windows" : "", "10.0.99999"));
+        // ProjectZomboid64.json may contain the bootstrap agent users add to open the launcher.
+        // This is an internal probe JVM, so never let that agent hand back to another launcher.
+        command.add("-D" + GameLaunch.HANDOFF_PROPERTY + "=false");
         GameLaunch.addChildEncodingArgs(command);
         command.add("-cp");
         List<String> classpath = new ArrayList<>(gameJson.classpath);

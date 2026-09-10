@@ -89,6 +89,11 @@ public final class GameLaunch {
      */
     public static final String HANDOFF_PROPERTY = "storm.launcher.handoff";
 
+    /** Client-only menu/connection branding shipped in the World Essentials workshop item. */
+    static final String ONE_LIFE_FRONTEND_MOD = "OneLifeFrontendBranding";
+
+    static final String ONE_LIFE_HOST = "172.240.18.253";
+
     public static final class LaunchPlan {
         public final List<String> command;
         public final Path workingDir;
@@ -259,9 +264,10 @@ public final class GameLaunch {
                             + pathArgFor(jvm, autoJoinFile.toAbsolutePath()));
         }
 
-        if (serverMods != null && !serverMods.isEmpty()) {
+        List<String> launchMods = oneLifeFallbackMods(profile, serverMods);
+        if (launchMods != null && !launchMods.isEmpty()) {
             Path joinHandoff =
-                    writeJoinHandoff(serverMods, joinChecksums, joinFingerprint, warnings);
+                    writeJoinHandoff(launchMods, joinChecksums, joinFingerprint, warnings);
             if (joinHandoff != null) {
                 command.add("-D" + JOIN_FILE_PROPERTY + "=" + pathArgFor(jvm, joinHandoff));
             }
@@ -295,6 +301,23 @@ public final class GameLaunch {
             }
         }
         return new LaunchPlan(command, gameDir, nativeEnvironment(gameDir, windows), warnings);
+    }
+
+    /**
+     * When an One/Life server query cannot return its mod list, still ask the boot prewarmer to
+     * load the optional frontend branding. Missing mods already fail soft in StormJoinPrewarm, so
+     * players who do not have World Essentials installed continue with their normal default
+     * profile. A real server mod list remains authoritative (World Essentials declares the branding
+     * companion as a dependency itself).
+     */
+    static List<String> oneLifeFallbackMods(ServerProfile profile, List<String> serverMods) {
+        if (serverMods != null && !serverMods.isEmpty()) {
+            return serverMods;
+        }
+        if (profile == null || !ONE_LIFE_HOST.equalsIgnoreCase(profile.host.trim())) {
+            return serverMods;
+        }
+        return List.of(ONE_LIFE_FRONTEND_MOD);
     }
 
     /** User args win: an explicit -Dstorm.experimental.clientperf=… suppresses the default. */

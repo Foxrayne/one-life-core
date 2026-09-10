@@ -560,8 +560,8 @@ public final class JoinFlow {
                         + failed
                         + " workshop item(s) this server needs, so the join was cancelled —"
                         + " a client missing any of them mismatches the server.",
-                "Restart Steam and press Join again; if it keeps happening, use \"Send Logs to"
-                        + " Developer\" so it can be investigated.");
+                "Restart Steam and press Join again; if it keeps happening, ask in the One/Life"
+                        + " Discord so it can be investigated.");
     }
 
     /**

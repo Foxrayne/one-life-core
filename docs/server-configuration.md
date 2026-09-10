@@ -18,7 +18,7 @@ script). All flags are opt-in unless noted.
 |------|---------|
 | `-Dstorm.server=true` | **Required.** Tells the bootstrap agent it is running on the dedicated-server JVM so it targets `GameServer`. Storm is a server-only framework — this is always set. |
 | `-DstormType=local` | Load Storm from `~/Zomboid/Workshop/storm` instead of the Steam workshop path. Local development only. |
-| `-DDISABLE_ANALYTICS=true` | Opt out of Storm's startup analytics: a one-time snapshot posted to the Storm developers on `OnServerStarted` (Storm/PZ version, server `PublicName`, OS/CPU/RAM, Storm settings, and the `Mods` / `WorkshopItems` lines). **On by default**; the startup log states `Storm startup analytics: enabled …` or `… disabled via -DDISABLE_ANALYTICS` either way. See [Startup analytics & privacy notice](#startup-analytics--privacy-notice). |
+| `-DDISABLE_ANALYTICS=true` | Disables Storm startup analytics. **One/Life Core forces this to `true` in the bootstrap before any local or CDN-updated core loads.** |
 | `-DLOG_LEVEL=DEBUG` | Storm log verbosity (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`). Default `INFO`. |
 | `-Dstorm.http.port=<port>` | Start Storm's HTTP server on `<port>`. Required for inspection endpoints and developer hot-reload. Conventionally `41798` on the dedicated server. |
 | `-Dstorm.hotreload=true` | Register the `/reload` and `/eval` developer endpoints. See [Developer Hot-Reload Endpoints](http-api.md#developer-hot-reload-endpoints). **Local development only.** |
@@ -40,28 +40,11 @@ script). All flags are opt-in unless noted.
 
 ## Startup analytics & privacy notice
 
-Every Storm JVM logs the Terms of Use & Privacy Policy at boot, right after the
-`Storm version:` line, prefixed with *"By running Storm you agree to the Storm
-Terms of Use & Privacy Policy (version …)"*. The text is the same
-`privacy-policy.txt` the Storm Launcher shows players (copied into `storm.jar`
-by `processResources`; `StormPrivacyNotice` logs it) — the launcher records a
-player's acceptance in a dialog, but a dedicated-server operator never sees
-that dialog, so the log is the operator's notice.
-
-Dedicated servers additionally post a **one-time startup snapshot** to the Storm
-developers via `StormStartupAnalytics` (server-only — client JVMs never post):
-Storm/PZ version, the server's `PublicName`, OS/CPU/RAM/JVM, Storm tuning
-values, and the `Mods` / `WorkshopItems` lines from the server `.ini`. No IP
-address or player data is collected. It is on by default; `-DDISABLE_ANALYTICS=true`
-turns it off, and either way the server log says which
-(`Storm startup analytics: enabled — … Disable with -DDISABLE_ANALYTICS=true.`).
-
-Players who join your server get Storm through the workshop auto-download and —
-unless they use the Storm Launcher — never see an acceptance dialog. Telling
-them is your job as the server's operator (Terms §3.5): link the policy
-([`privacy-policy.txt`](https://github.com/guspuffygit/project-zomboid-storm/blob/main/launcher/src/main/resources/privacy-policy.txt),
-also linked from the Steam Workshop page) in your server rules, description, or
-`ServerWelcomeMessage` in your server `.ini`.
+One/Life Core does not register the upstream startup-analytics handler. Its bootstrap also forces
+`DISABLE_ANALYTICS=true` before resolving the Storm core, so this remains true when the compatible
+core is updated from Storm's CDN. The One/Life launcher has no remote log-upload implementation.
+Its bundled privacy notice documents local storage and the network requests needed for Steam,
+server queries, joining, Discord links and upstream core updates.
 
 ## Sandbox options (performance knobs)
 

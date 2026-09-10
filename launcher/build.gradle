@@ -43,7 +43,9 @@ test {
 // The launcher versions and ships independently of the workshop item: bump launcherVersion in
 // gradle.properties and run deployLauncher — no workshop publish needed. Running launchers
 // self-update from this URL (see CdnUpdate); the path must match deployLauncher's upload key.
-def launcherUpdateUrl = "https://guspuffy.com/storm/launcher/storm-launcher.jar"
+// One/Life carries launcher-only branding, so an upstream launcher self-update would overwrite it.
+// Keep this empty until a One/Life-controlled release endpoint exists.
+def launcherUpdateUrl = ""
 
 def generateLauncherProperties = tasks.register('generateLauncherProperties') {
 	def outputDir = layout.buildDirectory.dir('generated/launcher-resources')
