@@ -129,6 +129,7 @@ class LuaEventNameRegistryTest implements UnitTest {
                 "LoadChunkEvent must take the single IsoChunk that triggerEvent passes");
     }
 
+    @SuppressWarnings("unchecked")
     private static Iterable<String> stormEventNames() throws Exception {
         Field field = LuaEventFactory.class.getDeclaredField("EVENT_CLASSES");
         field.setAccessible(true);
@@ -140,6 +141,7 @@ class LuaEventNameRegistryTest implements UnitTest {
      * the environment has to exist before {@code AddEvents()} can run. The previous environment is
      * restored because tests share a JVM.
      */
+    @SuppressWarnings("unchecked")
     private static Map<String, ?> vanillaEventMap() throws Exception {
         KahluaTable previousEnv = LuaManager.env;
         try {

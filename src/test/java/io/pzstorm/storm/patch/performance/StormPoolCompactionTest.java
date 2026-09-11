@@ -159,10 +159,12 @@ class StormPoolCompactionTest implements UnitTest {
         return set;
     }
 
+    @SuppressWarnings("unchecked")
     private static void add(Object set, Object o) throws Exception {
         ((Set<Object>) set).add(o);
     }
 
+    @SuppressWarnings("unchecked")
     private static void remove(Object set, Object o) throws Exception {
         ((Set<Object>) set).remove(o);
     }

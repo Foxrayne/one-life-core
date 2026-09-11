@@ -72,7 +72,7 @@ public class PopManFloodFill {
 
     /**
      * Marks a square as already handled so the fill will not cross it. Called from {@link
-     * #prepare()} to fence areas off before the traversal starts.
+     * #prepare(PopManMap)} to fence areas off before the traversal starts.
      */
     public void markVisited(int squareX, int squareY) {
         int localX = squareX - originX;
