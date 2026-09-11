@@ -99,6 +99,9 @@ There is plenty to keep you busy, whether you are new to Project Zomboid or have
 
 [hr][/hr]
 [b]One/Life Core[/b] is the server framework and branded launcher for the One/Life community. Based on [url=https://github.com/guspuffygit/project-zomboid-storm]Project Zomboid Storm[/url].
+
+[h2]SOURCE CODE[/h2]
+[url=https://github.com/Foxrayne/one-life-core]https://github.com/Foxrayne/one-life-core[/url]
 [hr][/hr]'''
 
 def os = OperatingSystem.current()
