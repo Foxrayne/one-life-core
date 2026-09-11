@@ -24,6 +24,7 @@ out/
 ### Java ###
 # Compiled class file
 *.class
+bin/
 
 # Exclude class files used as resources
 !**/resources/**/*.class
