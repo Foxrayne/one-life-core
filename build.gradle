@@ -440,22 +440,13 @@ tasks.register('installStorm', Sync) {
 		into 'bootstrap'
 	}
 
-	from('c/agentlib.dll') {
-		into 'bootstrap'
-	}
-
 	from(project(':launcher').tasks.named('jar')) {
 		into 'launcher'
 	}
 
-	from('launcher/dist/StormLauncher.bat') {
-		into 'launcher'
-	}
-
-	from('launcher/dist/StormLauncher.sh') {
-		into 'launcher'
-		filePermissions { unix(0755) }
-	}
+	// Steam Workshop rejects native libraries and launch scripts (.dll/.bat/.sh). The bootstrap
+	// is loaded directly as a Java agent and the launcher is an executable jar, so none of the
+	// legacy wrapper/native-agent files belong in the published payload.
 
 	from('LICENSE') {
 		into 'common'
