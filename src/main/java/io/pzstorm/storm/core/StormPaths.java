@@ -44,9 +44,30 @@ public class StormPaths {
                 "Could not find '" + targetFileName + "' in any parent directory.");
     }
 
+    /**
+     * Steam's workshop content dir for PZ ({@code …/steamapps/workshop/content/108600}). The Storm
+     * Launcher passes it through the join handoff file; keep the name in sync with {@code
+     * io.pzstorm.launcher.GameLaunch#WORKSHOP_DIR_PROPERTY}. Without it the dir is derived from the
+     * first {@code steamapps} entry found walking up from {@code user.dir}, which a stray file or
+     * folder of that name inside the game dir silently redirects.
+     */
+    public static final String WORKSHOP_DIR_PROPERTY = "storm.workshop.dir";
+
     public static Path getWorkshopDirectory() {
+        String configured = System.getProperty(WORKSHOP_DIR_PROPERTY);
+        if (configured != null && !configured.isBlank()) {
+            Path workshopDir = Path.of(configured.trim()).toAbsolutePath();
+            LOGGER.info("Workshop content dir from -D{}: {}", WORKSHOP_DIR_PROPERTY, workshopDir);
+            return workshopDir;
+        }
         Path steamappsDirectory = findFileInParents("steamapps");
-        return steamappsDirectory.resolve("workshop").resolve("content").resolve("108600");
+        Path workshopDir =
+                steamappsDirectory.resolve("workshop").resolve("content").resolve("108600");
+        LOGGER.info(
+                "Workshop content dir from the steamapps entry above user.dir {}: {}",
+                System.getProperty("user.dir"),
+                workshopDir);
+        return workshopDir;
     }
 
     public static Path getModsDirectory() {

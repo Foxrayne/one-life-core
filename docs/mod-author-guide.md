@@ -13,6 +13,10 @@ only load when its mod id appears on the `Mods=` line of
 `-Dstorm.workshop.mods=<id;id;…>` overrides the enabled set on any JVM
 (clients without the override load everything, as they have no server context
 at bootstrap). See `io.pzstorm.storm.core.StormWorkshopModGate`.
+The Steam workshop content dir comes from `-Dstorm.workshop.dir` when set
+(the launcher passes it), else from the first `steamapps` entry above the
+JVM's working dir; the startup log prints the resolved dir and how many mod
+folders each source contributed, then `Cataloged N mod jar(s)`.
 
 ```java
 public final class MyMod implements ZomboidMod {

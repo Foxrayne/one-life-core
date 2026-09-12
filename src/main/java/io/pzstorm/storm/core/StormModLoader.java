@@ -322,11 +322,39 @@ public class StormModLoader extends URLClassLoader {
         }
     }
 
+    /**
+     * Steam's workshop content dir, or {@code null} when no {@code steamapps} entry exists above
+     * {@code user.dir} and nothing was configured. A missing dir must not take the whole mod load
+     * down: local mod dirs still catalog, and the warning in {@link #loadStormMods()} names the
+     * gap.
+     */
+    static @Nullable Path resolveWorkshopDirectory() {
+        try {
+            return StormPaths.getWorkshopDirectory();
+        } catch (RuntimeException e) {
+            LOGGER.warn(
+                    "No Steam workshop dir found: {} (set -D{} to point at"
+                            + " steamapps/workshop/content/108600)",
+                    e.getMessage(),
+                    StormPaths.WORKSHOP_DIR_PROPERTY);
+            return null;
+        }
+    }
+
     /** Called by {@link StormBootstrap#loadAndRegisterMods()} */
     public static void loadStormMods() {
         try {
+            Path workshopDir = resolveWorkshopDirectory();
             List<Path> workshopDirectories =
-                    listWorkshopDirectories(StormPaths.getWorkshopDirectory());
+                    workshopDir == null
+                            ? Collections.emptyList()
+                            : listWorkshopDirectories(workshopDir);
+            if (workshopDir != null && !Files.isDirectory(workshopDir)) {
+                LOGGER.warn(
+                        "Workshop content dir does not exist: {} — no Steam workshop mod jars"
+                                + " will load",
+                        workshopDir);
+            }
             List<Path> modsDirectories = listModDirectories(StormPaths.getModsDirectory());
             List<Path> localWorkshopDirectories =
                     listWorkshopDirectories(StormPaths.getLocalWorkshopDirectory());
@@ -341,6 +369,13 @@ public class StormModLoader extends URLClassLoader {
                     (dir) -> LOGGER.debug("Local workshop directory: {}", dir.toAbsolutePath()));
             launcherModDirectories.forEach(
                     (dir) -> LOGGER.debug("Launcher mod directory: {}", dir.toAbsolutePath()));
+            LOGGER.info(
+                    "Mod folders found: {} under the Steam workshop dir, {} under the local"
+                            + " workshop dir, {} under ~/Zomboid/mods, {} launcher-synced",
+                    workshopDirectories.size(),
+                    localWorkshopDirectories.size(),
+                    modsDirectories.size(),
+                    launcherModDirectories.size());
 
             // Snapshot Steam workshop jars before catalog. Only the Steam workshop content dir
             // goes through GameServerWorkshopItems.Install — local workshop / mods dirs are
@@ -358,6 +393,16 @@ public class StormModLoader extends URLClassLoader {
                         .map(dir -> dir.toAbsolutePath().normalize())
                         .forEach(gatedDirectories::add);
                 LOGGER.info("Workshop mod gating active, enabled mod ids: {}", enabledWorkshopMods);
+                if (!enabledWorkshopMods.isEmpty()
+                        && workshopDirectories.isEmpty()
+                        && launcherModDirectories.isEmpty()) {
+                    LOGGER.warn(
+                            "The server enables {} workshop mod id(s) but no workshop mod folders"
+                                    + " were found under {} — every server mod jar (and its"
+                                    + " features) will be missing on this JVM",
+                            enabledWorkshopMods.size(),
+                            workshopDir);
+                }
             }
 
             // Launcher-synced mods go last: on id collision the last cataloged dir wins,
@@ -372,6 +417,11 @@ public class StormModLoader extends URLClassLoader {
                             .collect(Collectors.toList()),
                     gatedDirectories,
                     enabledWorkshopMods);
+            LOGGER.info(
+                    "Cataloged {} mod jar(s) from {} mod(s): {}",
+                    getModJars().size(),
+                    STORM_MODS.size(),
+                    STORM_MODS.keySet());
         } catch (Exception e) {
             LOGGER.error("Unable to load storm mods", e);
             throw new RuntimeException(e);

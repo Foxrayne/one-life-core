@@ -222,6 +222,56 @@ class GameLaunchTest {
     }
 
     @Test
+    void workshopDirRidesInTheJoinHandoffFromTheStormItemLocation() throws IOException {
+        Path content = tmp.resolve("lib/steamapps/workshop/content/108600");
+        Path itemBootstrap = content.resolve("3670772371/mods/storm/bootstrap");
+        Files.createDirectories(itemBootstrap);
+        Files.write(itemBootstrap.resolve("storm-bootstrap.jar"), new byte[] {0x50, 0x4b});
+        LauncherConfig config = config();
+        config.bootstrapDir = itemBootstrap.toString();
+
+        GameLaunch.plan(config, null, null, List.of("modA"));
+
+        java.util.Properties stored = new java.util.Properties();
+        try (java.io.Reader reader =
+                Files.newBufferedReader(
+                        LauncherPaths.joinHandoffFile(), java.nio.charset.StandardCharsets.UTF_8)) {
+            stored.load(reader);
+        }
+        assertEquals(
+                content.toAbsolutePath().normalize().toString(),
+                stored.getProperty(GameLaunch.WORKSHOP_DIR_PROPERTY));
+    }
+
+    @Test
+    void workshopDirFallsBackToTheAcfNextToTheGameAndStaysOutWhenUnknown() throws IOException {
+        // bootstrap outside any workshop item (local dev) + no acf anywhere: key absent
+        GameLaunch.plan(config(), null, null, List.of("modA"));
+        java.util.Properties stored = new java.util.Properties();
+        try (java.io.Reader reader =
+                Files.newBufferedReader(
+                        LauncherPaths.joinHandoffFile(), java.nio.charset.StandardCharsets.UTF_8)) {
+            stored.load(reader);
+        }
+        assertNull(stored.getProperty(GameLaunch.WORKSHOP_DIR_PROPERTY));
+
+        // the game install's own library carries the acf: derive from it
+        Path steamapps = tmp.resolve("steamapps");
+        Path libGame = steamapps.resolve("common/ProjectZomboid");
+        Files.createDirectories(libGame);
+        Files.copy(
+                gameDir.resolve("ProjectZomboid64.json"), libGame.resolve("ProjectZomboid64.json"));
+        Files.createDirectories(steamapps.resolve("workshop"));
+        Files.writeString(
+                steamapps.resolve("workshop/appworkshop_108600.acf"), "\"AppWorkshop\"\n{\n}\n");
+        LauncherConfig config = config();
+        config.gameDir = libGame.toString();
+        assertEquals(
+                steamapps.resolve("workshop/content/108600"),
+                GameLaunch.workshopContentDir(config, bootstrapDir));
+    }
+
+    @Test
     void absentChecksumsLeaveThoseHandoffKeysOut() throws IOException {
         GameLaunch.plan(config(), null, null, List.of("modA"));
         java.util.Properties stored = new java.util.Properties();
