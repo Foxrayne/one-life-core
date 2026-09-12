@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests verifying networking events can be dispatched and received by handlers. */
+@SuppressWarnings("deprecation")
 class NetworkingEventDispatchTest implements IntegrationTest {
 
     @Test

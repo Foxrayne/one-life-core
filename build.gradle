@@ -7,16 +7,20 @@ plugins {
 	id 'maven-publish'
 	id 'signing'
 	id 'jacoco'
-	id 'com.diffplug.spotless' version '8.1.0'
+	id 'com.diffplug.spotless' version '8.10.2'
 	id 'io.github.gradle-nexus.publish-plugin' version '2.0.0'
-	id 'io.freefair.lombok' version '9.2.0'
+	id 'io.freefair.lombok' version '9.5.0'
+}
+
+lombok {
+	version = '1.18.48'
 }
 
 def env = project.hasProperty('env') ? project.property('env') : 'dev'
 
 def getWorkshopId = {
 	switch (env) {
-		case 'prod':  return workshopIdProd
+		case 'prod': return workshopIdProd
 		case 'stage': return workshopIdStage
 		default: return workshopIdDev
 	}
@@ -24,7 +28,7 @@ def getWorkshopId = {
 
 def getWorkshopTitle = {
 	switch (env) {
-		case 'prod':  return 'One/Life Core'
+		case 'prod': return 'One/Life Core'
 		case 'stage': return '[STAGE] One/Life Core'
 		default: return '[DEV] One/Life Core'
 	}
@@ -32,7 +36,7 @@ def getWorkshopTitle = {
 
 def getModId = {
 	switch (env) {
-		case 'prod':  return 'one-life-core-b42'
+		case 'prod': return 'one-life-core-b42'
 		case 'stage': return 'one-life-core-b42-stage'
 		default: return 'one-life-core-b42-dev'
 	}
@@ -40,7 +44,7 @@ def getModId = {
 
 def getModName = {
 	switch (env) {
-		case 'prod':  return 'One/Life Core'
+		case 'prod': return 'One/Life Core'
 		case 'stage': return '[STAGE] One/Life Core'
 		default: return '[DEV] One/Life Core'
 	}
@@ -48,7 +52,7 @@ def getModName = {
 
 def getWorkshopVisibility = {
 	switch (env) {
-		case 'prod':  return '3'
+		case 'prod': return '3'
 		default: return '3'
 	}
 }
@@ -128,7 +132,9 @@ apply from: 'publish.gradle'
 // release-versioned; everything else (dev/stage, plain installStorm) keeps -SNAPSHOT so the CDN
 // never overrides a local working-tree install.
 boolean releaseBuild = System.getenv("STAGING") || env == 'prod' ||
-		gradle.startParameter.taskNames.any { it.tokenize(':').last() == 'deployStormJar' }
+		gradle.startParameter.taskNames.any {
+			it.tokenize(':').last() == 'deployStormJar'
+		}
 String versionSuffix = releaseBuild ? "" :
 		project.ext.has('versionSuffix') ? project.ext.get('versionSuffix') : "-SNAPSHOT"
 
@@ -136,9 +142,11 @@ allprojects {
 	repositories { mavenCentral() }
 	group = 'com.sentientsimulations'
 	version = "${pzVersion}_${stormVersion}" + versionSuffix
-	java {
-		toolchain {
-			languageVersion = JavaLanguageVersion.of(javaVersion as int)
+	pluginManager.withPlugin('java') {
+		java {
+			toolchain {
+				languageVersion = JavaLanguageVersion.of(javaVersion as int)
+			}
 		}
 	}
 }
@@ -200,6 +208,7 @@ test {
 	// without this the StormEnv.isStormServer() block in StormClassTransformers never runs,
 	// so AllPatchesIntegrationTest silently skips every server-only patch
 	systemProperty 'storm.server', 'true'
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
 	finalizedBy jacocoTestReport
 
 	testLogging {
@@ -236,6 +245,7 @@ tasks.register('clientPatchTest', Test) {
 	// register the -Dstorm.experimental.clientperf patches so they get weave-validated too
 	systemProperty 'storm.experimental.clientperf', 'true'
 	systemProperty 'storm.popman.java', 'true'
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath
 	filter {
@@ -298,7 +308,7 @@ processResources {
 	doLast {
 		def f = new File(destinationDir, 'storm-version.properties')
 		f.parentFile.mkdirs()
-		f.text = "version=${project.version}\n"
+		f.text = "version=${inputs.properties['stormVersion']}\n"
 	}
 }
 
@@ -410,7 +420,9 @@ tasks.register('installStorm', Sync) {
 
 	dependsOn 'installDist', 'writeModInfo', 'generateWorkshopFolder', project(':bootstrap').tasks.named('shadowJar')
 
-	def destDir = getLocalProperty('zomboidDir').map { "${it}/Workshop/${rootProject.name}/Contents/mods/${rootProject.name}" }
+	def destDir = getLocalProperty('zomboidDir').map {
+		"${it}/Workshop/${rootProject.name}/Contents/mods/${rootProject.name}"
+	}
 
 	from(tasks.named('installDist').map { it.destinationDir }) {
 		into '42'
@@ -500,7 +512,9 @@ tasks.register('deployStormJar') {
 				"sha256=${sha256},version=${stormVersion}"
 			])
 		}
-		def invalidationPaths = cdnPzVersions.collect { "/storm/core/${it}/storm.jar".toString() }
+		def invalidationPaths = cdnPzVersions.collect {
+			"/storm/core/${it}/storm.jar".toString()
+		}
 		logger.lifecycle("Invalidating ${invalidationPaths.join(' ')} on distribution ${distributionId}")
 		run([
 			'aws',
@@ -641,7 +655,9 @@ tasks.register('generateWorkshopFolder', Copy) {
 	from generateWorkshopFile
 	from(rootProject.file('preview.png'))
 
-	into getLocalProperty('zomboidDir').map { "${it}/Workshop/${rootProject.name}" }
+	into getLocalProperty('zomboidDir').map {
+		"${it}/Workshop/${rootProject.name}"
+	}
 }
 
 tasks.register('runStorm', JavaExec) {
@@ -689,7 +705,9 @@ tasks.register('runStorm', JavaExec) {
 }
 
 tasks.register('writeWorkshopVdf') {
-	def workshopDir = getLocalProperty('zomboidDir').map { "${it}/Workshop/${rootProject.name}" }
+	def workshopDir = getLocalProperty('zomboidDir').map {
+		"${it}/Workshop/${rootProject.name}"
+	}
 	def outputFile = layout.buildDirectory.file('workshop.vdf')
 
 	inputs.property('appid', '108600')
@@ -710,7 +728,9 @@ tasks.register('writeWorkshopVdf') {
 		def workshopId = inputs.properties['publishedfileid']
 		def modId = inputs.properties['modId']
 		def descriptionWithFooter = inputs.properties['description'].trim() + "\n\n[hr][/hr]\nWorkshop ID: ${workshopId}\nMod ID: ${modId}"
-		def escDesc = descriptionWithFooter.replace('\r', '').readLines().collect { it.replaceFirst(/^\s+/, '') }.join('\n').trim().replace('"', "'")
+		def escDesc = descriptionWithFooter.replace('\r', '').readLines().collect {
+			it.replaceFirst(/^\s+/, '')
+		}.join('\n').trim().replace('"', "'")
 		def escTitle = inputs.properties['title'].replace('"', "'").replace('\r', '').replace('\n', ' ')
 		f.text = [
 			'"workshopitem"',
@@ -755,7 +775,7 @@ tasks.register('uploadWorkshop', Exec) {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.compilerArgs << "-Xlint:deprecation" << "-Xdiags:verbose"
+	it.options.compilerArgs << "-Xlint:deprecation" << "-Xlint:unchecked" << "-Xdiags:verbose"
 }
 
 compileTestJava {

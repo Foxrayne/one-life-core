@@ -16,7 +16,7 @@ import org.jetbrains.annotations.Unmodifiable;
  * constructor instances are statically mapped and ready for access which reduces overhead when
  * using reflection to instantiate event objects.
  */
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked", "deprecation"})
 public class LuaEventFactory {
 
     /**

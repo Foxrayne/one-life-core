@@ -30,6 +30,8 @@ def localProperties = providers.fileContents(
 
 test {
 	useJUnitPlatform()
+	// sqlite-jdbc loads its native library via System.load
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
 	def zomboidDir = localProperties.getProperty('zomboidDir')
 	if (zomboidDir) {
 		systemProperty 'storm.test.zomboidDir', zomboidDir
@@ -69,9 +71,9 @@ jar {
 	archiveFileName = 'storm-launcher.jar'
 	manifest {
 		attributes(
-				'Main-Class': 'io.pzstorm.launcher.LauncherMain',
-				'Implementation-Version': launcherVersion
-				)
+		'Main-Class': 'io.pzstorm.launcher.LauncherMain',
+		'Implementation-Version': launcherVersion
+		)
 	}
 }
 

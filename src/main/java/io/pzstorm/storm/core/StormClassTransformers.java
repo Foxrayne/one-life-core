@@ -30,6 +30,7 @@ import io.pzstorm.storm.patch.fixes.ActionGroupSyncPatch;
 import io.pzstorm.storm.patch.fixes.ActionManagerPatch;
 import io.pzstorm.storm.patch.fixes.ActionStateContainerPatch;
 import io.pzstorm.storm.patch.fixes.AdvancedAnimatorMissingFolderPatch;
+import io.pzstorm.storm.patch.fixes.AnimalDataGrowWaterGuardPatch;
 import io.pzstorm.storm.patch.fixes.AnimalIgnoredTroughExpiryPatch;
 import io.pzstorm.storm.patch.fixes.AnimalWaterSourceFailoverPatch;
 import io.pzstorm.storm.patch.fixes.AnimalZoneContainmentPatch;
@@ -68,6 +69,8 @@ import io.pzstorm.storm.patch.fixes.SitOnFurnitureBoxedInChairPatch;
 import io.pzstorm.storm.patch.fixes.SpriteConfigFixPatch;
 import io.pzstorm.storm.patch.fixes.TransactionManagerPatch;
 import io.pzstorm.storm.patch.fixes.TranslatorPatch;
+import io.pzstorm.storm.patch.fixes.VehiclesDbChunkKeyPatch;
+import io.pzstorm.storm.patch.fixes.VehiclesDbChunkKeyRepairPatch;
 import io.pzstorm.storm.patch.fixes.WorldMapVisitedServerAllKnownPatch;
 import io.pzstorm.storm.patch.lua.LuaExposerDumpPatch;
 import io.pzstorm.storm.patch.lua.LuaManagerPatch;
@@ -76,6 +79,7 @@ import io.pzstorm.storm.patch.networking.CoopMasterPatch;
 import io.pzstorm.storm.patch.networking.GameEntityBroadcastGatePatch;
 import io.pzstorm.storm.patch.networking.GameServerConnectionCapPatch;
 import io.pzstorm.storm.patch.networking.GameServerLockFpsPatch;
+import io.pzstorm.storm.patch.networking.GameServerPlayerConnectionEventsPatch;
 import io.pzstorm.storm.patch.networking.GameServerStalledConnectionReapPatch;
 import io.pzstorm.storm.patch.networking.GameServerTickRatePatch;
 import io.pzstorm.storm.patch.networking.GameServerWorkshopItemsPatch;
@@ -384,6 +388,7 @@ public class StormClassTransformers {
         registerTransformer(new IsoAnimalReattachBackToMomPatch());
         registerTransformer(new IsoAnimalUpdateNullDefGuardPatch());
         registerTransformer(new IsoAnimalCanClimbStairsNullDefGuardPatch());
+        registerTransformer(new AnimalDataGrowWaterGuardPatch());
         registerTransformer(new IsoMovingObjectIsPushedByForSeparateNullDefGuardPatch());
         registerTransformer(new IsoGridSquareGetRoomNullDefGuardPatch());
         registerTransformer(new BaseVehicleSavePatch());
@@ -428,6 +433,10 @@ public class StormClassTransformers {
             registerTransformer(new AdvancedAnimatorMissingFolderPatch());
             registerTransformer(new ActionGroupSyncPatch());
             registerTransformer(new AssetManagerSyncPatch());
+            // vehicles.db rows keyed by a stale/recycled chunk pointer never load again at
+            // the vehicle's real position; file by x,y and repair misfiled rows at boot.
+            registerTransformer(new VehiclesDbChunkKeyPatch());
+            registerTransformer(new VehiclesDbChunkKeyRepairPatch());
         }
         registerTransformer(new ServerCellUnloadPatch());
         registerTransformer(new ServerLOSUpdatePatch());
@@ -589,6 +598,7 @@ public class StormClassTransformers {
             registerTransformer(new GameEntityBroadcastGatePatch());
             registerTransformer(new GameServerWorkshopItemsPatch());
             registerTransformer(new GameServerStalledConnectionReapPatch());
+            registerTransformer(new GameServerPlayerConnectionEventsPatch());
             registerTransformer(new RequestDataManagerFixPatch());
             registerTransformer(new PlayerDownloadServerChunkActivityPatch());
             registerTransformer(new GameServerConnectionCapPatch());
