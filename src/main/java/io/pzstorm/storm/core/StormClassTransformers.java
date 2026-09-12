@@ -43,6 +43,7 @@ import io.pzstorm.storm.patch.fixes.ChatServerDisconnectPatch;
 import io.pzstorm.storm.patch.fixes.CompressIdenticalItemsPatch;
 import io.pzstorm.storm.patch.fixes.ContainerHatchPositionFixPatch;
 import io.pzstorm.storm.patch.fixes.CoopHatchPositionFixPatch;
+import io.pzstorm.storm.patch.fixes.DebugLogStreamFormatPatch;
 import io.pzstorm.storm.patch.fixes.GameServerStartPMChatPatch;
 import io.pzstorm.storm.patch.fixes.GeneralActionPacketPatch;
 import io.pzstorm.storm.patch.fixes.HutchDirtRateFixPatch;
@@ -371,6 +372,7 @@ public class StormClassTransformers {
         registerTransformer(new ChatManagerPatch());
         registerTransformer(new UIWorldMapV1Patch());
         registerTransformer(new DebugLogPatch());
+        registerTransformer(new DebugLogStreamFormatPatch());
         registerTransformer(new ZomboidFileSystemPatch());
         registerTransformer(new CommandBasePatch());
         registerTransformer(new ThreadPatch());
