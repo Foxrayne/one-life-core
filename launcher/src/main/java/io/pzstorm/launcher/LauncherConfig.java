@@ -43,6 +43,12 @@ public final class LauncherConfig {
      */
     public List<String> globalVmArgs = new ArrayList<>();
 
+    /**
+     * Extra game (program) args applied to every launch, e.g. {@code
+     * -debuglog=ModelManager,Shader}; these go to the game's main(), after the JVM args.
+     */
+    public List<String> globalGameArgs = new ArrayList<>();
+
     public List<ServerProfile> servers = new ArrayList<>();
 
     /**
@@ -112,6 +118,7 @@ public final class LauncherConfig {
         map.put("autoMemory", autoMemory);
         map.put("memoryGb", (long) memoryGb);
         map.put("globalVmArgs", new ArrayList<Object>(globalVmArgs));
+        map.put("globalGameArgs", new ArrayList<Object>(globalGameArgs));
         List<Object> serverList = new ArrayList<>();
         for (ServerProfile server : servers) {
             serverList.add(server.toMap());
@@ -135,14 +142,8 @@ public final class LauncherConfig {
         config.skipMenus = ServerProfile.bool(map.get("skipMenus"), true);
         config.autoMemory = ServerProfile.bool(map.get("autoMemory"), true);
         config.memoryGb = (int) ServerProfile.num(map.get("memoryGb"), 8);
-        Object args = map.get("globalVmArgs");
-        if (args instanceof List) {
-            for (Object arg : (List<?>) args) {
-                if (arg != null && !String.valueOf(arg).isEmpty()) {
-                    config.globalVmArgs.add(String.valueOf(arg));
-                }
-            }
-        }
+        config.globalVmArgs = ServerProfile.strings(map.get("globalVmArgs"));
+        config.globalGameArgs = ServerProfile.strings(map.get("globalGameArgs"));
         Object serverList = map.get("servers");
         if (serverList instanceof List) {
             for (Object entry : (List<?>) serverList) {

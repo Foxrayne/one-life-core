@@ -299,6 +299,11 @@ public final class GameLaunch {
             command.add("--");
         }
 
+        command.addAll(config.globalGameArgs);
+        if (profile != null) {
+            command.addAll(profile.extraGameArgs);
+        }
+
         if (profile != null && autoJoinFile == null) {
             command.add("+connect");
             command.add(profile.connectAddress());
