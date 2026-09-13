@@ -180,6 +180,28 @@ enables Storm-core client Java features:
   player at that index is a non-"None" access level with `canSeeAll()` —
   the same rule `checkCanSeeClient` applies in render. Fails soft to vanilla.
 
+- **Players, zombies and vehicles invisible after connecting** —
+  `io.pzstorm.storm.patch.client.ModelManagerReloadWaitPatch` (client-only).
+  `Core.ResetLua` at connect calls `ModelManager.initAnimationMeshes(true)`,
+  which starts every animation mesh load and returns at once; the wait loop
+  that pumps the file system until each mesh is ready runs only on the boot
+  pass (`false`). `loadModAnimations()` follows immediately and loads a mod's
+  animations only `if (am.modelMesh.isReady())`, and the skip is permanent:
+  `MeshAssetManager.loadCallback` never notifies `ModelManager` (unlike
+  `AnimationAssetManager`, whose late assets self-heal through
+  `animationAssetLoaded`), and `loadModAnimations` registers the mod before its
+  load loop so a later call only bumps priority. `setActiveAnimations()` then
+  clears `skinningData.animationClips` for every ready mesh and repopulates
+  only from what loaded, so everything animated on the losing mesh renders
+  invisible for the session. The reload normally hits `MeshAssetManager`'s
+  process-lifetime cache, so the race only opens when it asks for a mesh key
+  boot never loaded — e.g. after server-item mod-dir pinning corrected a mod
+  folder — which is why it is intermittent and differs per player on the same
+  server. The patch hooks `initAnimationMeshes(boolean)` exit and, on the
+  reload pass, runs the boot pass's pump (`updateAsyncTransactions` + frame
+  pump) until every mesh is ready or failed, bounded at 60 s with a warning
+  naming the stragglers. Fails soft: any error disables the wait permanently.
+
 - **Launcher auto-join** — `io.pzstorm.storm.client.LauncherAutoJoin`
   (registered only when the launcher passes `-Dstorm.autojoin.file=<path>`)
   reads and immediately deletes the launcher's one-shot credential handoff at

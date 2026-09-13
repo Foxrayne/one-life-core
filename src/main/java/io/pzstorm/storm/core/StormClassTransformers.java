@@ -10,6 +10,7 @@ import io.pzstorm.storm.patch.client.IsoBulletTracerEffectsConfigNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoFallingClothingDropNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoObjectAdminSeeAllTargetAlphaPatch;
 import io.pzstorm.storm.patch.client.IsoWorldInventoryObjectRenderSpriteGuardPatch;
+import io.pzstorm.storm.patch.client.ModelManagerReloadWaitPatch;
 import io.pzstorm.storm.patch.client.PlayerDataRequestBackoffPatch;
 import io.pzstorm.storm.patch.client.VehicleChunkRehomePatch;
 import io.pzstorm.storm.patch.client.VehicleModelAttachRetryPatch;
@@ -559,6 +560,7 @@ public class StormClassTransformers {
             registerTransformer(new VehicleModDataRequestPatch());
             registerTransformer(new VehicleRequestMergeFlagsPatch());
             registerTransformer(new VehicleModelAttachRetryPatch());
+            registerTransformer(new ModelManagerReloadWaitPatch());
             registerTransformer(new VehicleTowConstraintSnapPatch());
             registerTransformer(new VehicleChunkRehomePatch());
             registerTransformer(new VehicleSoundsClientCreatePatch());
