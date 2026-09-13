@@ -397,6 +397,7 @@ public class StormClassTransformers {
         registerTransformer(new SitOnFurnitureBoxedInChairPatch());
         registerTransformer(new InventoryItemStoreByteDataPatch());
         registerTransformer(new KahluaTableRawgetPatch());
+        registerTransformer(new AdvancedAnimatorMissingFolderPatch());
         if (StormEnv.isStormServer() || Boolean.getBoolean("storm.experimental.clientperf")) {
             registerTransformer(new AnimationPlayerRecorderIsActivePatch());
         }
@@ -432,7 +433,6 @@ public class StormClassTransformers {
             // vehicle load permanently deletes the vehicle from vehicles.db.
             registerTransformer(new AnimationSetLockPatch());
             registerTransformer(new RefreshAnimSetsLockPatch());
-            registerTransformer(new AdvancedAnimatorMissingFolderPatch());
             registerTransformer(new ActionGroupSyncPatch());
             registerTransformer(new AssetManagerSyncPatch());
             // vehicles.db rows keyed by a stale/recycled chunk pointer never load again at
