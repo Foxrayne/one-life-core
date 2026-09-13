@@ -6,6 +6,7 @@ import io.pzstorm.storm.event.core.PacketEventDispatcher;
 import io.pzstorm.storm.mod.ZomboidMod;
 import io.pzstorm.storm.patch.client.CombatManagerBallisticsNullGuardPatch;
 import io.pzstorm.storm.patch.client.CoreResetLuaPatch;
+import io.pzstorm.storm.patch.client.IsoBulletTracerEffectsConfigNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoFallingClothingDropNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoObjectAdminSeeAllTargetAlphaPatch;
 import io.pzstorm.storm.patch.client.IsoWorldInventoryObjectRenderSpriteGuardPatch;
@@ -567,6 +568,7 @@ public class StormClassTransformers {
             registerTransformer(new IsoWorldInventoryObjectRenderSpriteGuardPatch());
             registerTransformer(new CombatManagerBallisticsNullGuardPatch());
             registerTransformer(new IsoFallingClothingDropNullGuardPatch());
+            registerTransformer(new IsoBulletTracerEffectsConfigNullGuardPatch());
         }
 
         if (StormEnv.isStormServer()) {
