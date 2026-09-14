@@ -62,6 +62,7 @@ import io.pzstorm.storm.patch.fixes.IsoObjectTransmitUpdatedSpriteGuardPatch;
 import io.pzstorm.storm.patch.fixes.IsoZombieUpdateFixPatch;
 import io.pzstorm.storm.patch.fixes.ItemTransactionPacketPatch;
 import io.pzstorm.storm.patch.fixes.NetTimedActionPacketPatch;
+import io.pzstorm.storm.patch.fixes.NetTimedActionParsePatch;
 import io.pzstorm.storm.patch.fixes.PopManSaveAdoptFixPatch;
 import io.pzstorm.storm.patch.fixes.RefreshAnimSetsLockPatch;
 import io.pzstorm.storm.patch.fixes.RequestDataManagerFixPatch;
@@ -424,6 +425,7 @@ public class StormClassTransformers {
         }
         if (StormEnv.isStormServer()) {
             registerTransformer(new IsoGeneratorElectricityPatch());
+            registerTransformer(new NetTimedActionParsePatch());
             registerTransformer(new IsoAnimalUpdateTimingPatch());
             registerTransformer(new IsoChunkRemoveFromWorldPatch());
             registerTransformer(new IsoObjectRemoveFromWorldPatch());
