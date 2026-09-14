@@ -282,6 +282,20 @@ class LauncherConfigTest {
                                 "3670772371/mods/storm/launcher/storm-launcher.jar")));
         assertNull(LauncherConfig.workshopItemIdOf(Path.of("/opt/storm/bootstrap")));
         assertNull(LauncherConfig.workshopItemIdOf(null));
+        assertNull(
+                LauncherConfig.workshopItemIdOf(
+                        Path.of("/mnt/e/SteamLibrary/steamapps/workshop/content/108600")));
+    }
+
+    @Test
+    void workshopItemIdOfIgnoresSegmentCase() {
+        Path content = Path.of("/E:/SteamLibrary/SteamApps/Workshop/Content/108600");
+        Path spelledByHand = content.resolve("3670772371/mods/storm/launcher/storm-launcher.jar");
+        assertEquals("3670772371", LauncherConfig.workshopItemIdOf(spelledByHand));
+        assertEquals(
+                content.toAbsolutePath().normalize(),
+                LauncherConfig.workshopAppDirOf(spelledByHand));
+        assertNull(LauncherConfig.workshopAppDirOf(Path.of("/opt/storm/bootstrap")));
     }
 
     @Test

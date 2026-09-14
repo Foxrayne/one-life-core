@@ -231,6 +231,16 @@ class GameLaunchTest {
     @Test
     void workshopDirRidesInTheJoinHandoffFromTheStormItemLocation() throws IOException {
         Path content = tmp.resolve("lib/steamapps/workshop/content/108600");
+        assertWorkshopDirRidesInTheJoinHandoff(content);
+    }
+
+    @Test
+    void workshopDirFromTheStormItemLocationIgnoresSegmentCase() throws IOException {
+        Path content = tmp.resolve("lib/SteamApps/Workshop/Content/108600");
+        assertWorkshopDirRidesInTheJoinHandoff(content);
+    }
+
+    private void assertWorkshopDirRidesInTheJoinHandoff(Path content) throws IOException {
         Path itemBootstrap = content.resolve("3670772371/mods/storm/bootstrap");
         Files.createDirectories(itemBootstrap);
         Files.write(itemBootstrap.resolve("storm-bootstrap.jar"), new byte[] {0x50, 0x4b});

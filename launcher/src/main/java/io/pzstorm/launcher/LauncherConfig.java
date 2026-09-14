@@ -308,8 +308,7 @@ public final class LauncherConfig {
     private static void addSteamappsAbove(Path start, List<Path> out) {
         Path cursor = start == null ? null : start.toAbsolutePath().normalize();
         for (; cursor != null; cursor = cursor.getParent()) {
-            Path name = cursor.getFileName();
-            if (name != null && name.toString().equals("steamapps")) {
+            if (segmentIs(cursor, "steamapps")) {
                 if (!out.contains(cursor)) {
                     out.add(cursor);
                 }
@@ -324,25 +323,38 @@ public final class LauncherConfig {
 
     /** The workshop item id a path lives under ({@code …/content/108600/<id>/…}), or null. */
     static String workshopItemIdOf(Path path) {
+        Path appDir = workshopAppDirOf(path);
+        if (appDir == null) {
+            return null;
+        }
+        Path absolute = path.toAbsolutePath().normalize();
+        return absolute.equals(appDir) ? null : appDir.relativize(absolute).getName(0).toString();
+    }
+
+    /**
+     * The {@code …/workshop/content/108600} dir a path lives under, or null. Segments compare
+     * case-insensitively: Windows resolves {@code Content} and {@code content} to the same dir, and
+     * a launcher started through a differently spelled path (Steam Launch Options, a shortcut) must
+     * still be recognised as inside its item — otherwise it never stages and never self-updates.
+     */
+    static Path workshopAppDirOf(Path path) {
         if (path == null) {
             return null;
         }
-        Path child = null;
         for (Path cursor = path.toAbsolutePath().normalize();
                 cursor != null;
-                child = cursor, cursor = cursor.getParent()) {
-            Path name = cursor.getFileName();
+                cursor = cursor.getParent()) {
             Path parent = cursor.getParent();
-            if (child != null
-                    && name != null
-                    && name.toString().equals("108600")
-                    && parent != null
-                    && parent.getFileName() != null
-                    && parent.getFileName().toString().equals("content")) {
-                return child.getFileName().toString();
+            if (segmentIs(cursor, "108600") && parent != null && segmentIs(parent, "content")) {
+                return cursor;
             }
         }
         return null;
+    }
+
+    static boolean segmentIs(Path path, String name) {
+        Path segment = path.getFileName();
+        return segment != null && segment.toString().equalsIgnoreCase(name);
     }
 
     static Path localDevBootstrap() {
@@ -436,8 +448,7 @@ public final class LauncherConfig {
         for (Path cursor = start.toAbsolutePath().normalize();
                 cursor != null;
                 cursor = cursor.getParent()) {
-            if (cursor.getFileName() != null
-                    && cursor.getFileName().toString().equals("steamapps")) {
+            if (segmentIs(cursor, "steamapps")) {
                 return gameDirAt(cursor.resolve("common").resolve("ProjectZomboid"));
             }
         }

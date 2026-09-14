@@ -254,6 +254,14 @@ Design points:
   detection) through the `--staged-from` origin, not its own location —
   otherwise a launcher staged from the dev or staging item would quietly
   pre-update prod.
+- **"Inside the item" is decided by path segments, case-insensitively.**
+  `LauncherConfig.workshopItemIdOf` walks the own-jar path for
+  `content/108600/<id>` and compares each segment with `equalsIgnoreCase`.
+  Windows accepts any spelling of `Content` or `SteamApps` in a Launch Options
+  or shortcut path, and a case-sensitive match there silently skipped staging
+  — and with it every self-update — for launchers started that way (1.2.7).
+  The first launcher.log line of every run prints the own-jar path and the
+  staging decision, so a stuck version is visible in the log.
 - **Repo/dist builds never stage and never restart** — an explicit custom
   install is not fought; those keep the join-time update flow only.
 - **Failure degrades to today's behavior.** If staging is impossible
