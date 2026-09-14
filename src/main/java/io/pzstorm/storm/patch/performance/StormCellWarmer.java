@@ -989,13 +989,15 @@ public final class StormCellWarmer {
      * ticks for the last time on the tick its cell warmed. Called after the {@link #runPostUpdate}
      * loop, and again from its {@code finally} so a throw mid-loop cannot leave a cell waiting for
      * a later tick, where a rewarm could restore its stash before the walk had filled it. A throw
-     * mid-walk leaves those cells warm with whatever was stashed and the rest still ticking, which
-     * is what warming did before it parked them. Always empties the list.
+     * mid-walk puts every stash back ({@link #restoreProcessObjects}), so the cells stay warm with
+     * all of their objects ticking, as they did before warming parked them, rather than some
+     * parked and some not. Always empties the list.
      */
     private static void drainWarmedThisTick() {
         if (WARMED_THIS_TICK.isEmpty()) {
             return;
         }
+        IsoCell isoCell = IsoWorld.instance == null ? null : IsoWorld.instance.currentCell;
         try {
             Map<IsoChunk, List<IsoObject>> stashByChunk = new IdentityHashMap<>();
             for (int i = 0; i < WARMED_THIS_TICK.size(); i++) {
@@ -1008,17 +1010,20 @@ public final class StormCellWarmer {
                     }
                 }
             }
-            drainProcessObjects(
-                    IsoWorld.instance == null ? null : IsoWorld.instance.currentCell, stashByChunk);
+            drainProcessObjects(isoCell, stashByChunk);
             for (int i = 0; i < WARMED_THIS_TICK.size(); i++) {
                 StormCellWarmingMetrics.recordProcessObjectsDrained(
                         WARMED_THIS_TICK.get(i).processObjects.size());
             }
         } catch (Throwable t) {
             StormLogger.LOGGER.error(
-                    "StormCellWarmer failed to drain the ticking objects of {} warmed cell(s)",
+                    "StormCellWarmer failed to drain the ticking objects of {} warmed cell(s);"
+                            + " putting back what was parked, so they all tick",
                     WARMED_THIS_TICK.size(),
                     t);
+            for (int i = 0; i < WARMED_THIS_TICK.size(); i++) {
+                restoreProcessObjects(isoCell, WARMED_THIS_TICK.get(i).processObjects);
+            }
         } finally {
             WARMED_THIS_TICK.clear();
         }

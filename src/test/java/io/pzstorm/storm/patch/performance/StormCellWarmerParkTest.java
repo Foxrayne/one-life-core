@@ -435,6 +435,10 @@ class StormCellWarmerParkTest implements UnitTest {
                 calls(warmer, "warm", owner, "drainProcessObjects"),
                 "warm() queues the cell; the list is walked once per tick, after the loop");
         assertEquals(1, calls(warmer, "drainWarmedThisTick", owner, "drainProcessObjects"));
+        assertEquals(
+                1,
+                calls(warmer, "drainWarmedThisTick", owner, "restoreProcessObjects"),
+                "a walk that threw puts every stash back, so no cell is left half-parked");
         assertEquals(1, calls(warmer, "warm", owner, "parkVehicles"));
         assertEquals(
                 0,
