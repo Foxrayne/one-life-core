@@ -990,8 +990,8 @@ public final class StormCellWarmer {
      * loop, and again from its {@code finally} so a throw mid-loop cannot leave a cell waiting for
      * a later tick, where a rewarm could restore its stash before the walk had filled it. A throw
      * mid-walk puts every stash back ({@link #restoreProcessObjects}), so the cells stay warm with
-     * all of their objects ticking, as they did before warming parked them, rather than some
-     * parked and some not. Always empties the list.
+     * all of their objects ticking, as they did before warming parked them, rather than some parked
+     * and some not. Always empties the list.
      */
     private static void drainWarmedThisTick() {
         if (WARMED_THIS_TICK.isEmpty()) {
