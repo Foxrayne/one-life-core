@@ -106,3 +106,5 @@ CLAUDE.local.md
 
 ### Claude Code local hooks ###
 .claude/local/
+
+.lwjgl/

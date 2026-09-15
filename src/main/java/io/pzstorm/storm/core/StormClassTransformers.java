@@ -4,19 +4,27 @@ import static io.pzstorm.storm.logging.StormLogger.LOGGER;
 
 import io.pzstorm.storm.event.core.PacketEventDispatcher;
 import io.pzstorm.storm.mod.ZomboidMod;
+import io.pzstorm.storm.patch.client.ChecksumOverTcpPatch;
+import io.pzstorm.storm.patch.client.ChunkRequestOverTcpPatch;
 import io.pzstorm.storm.patch.client.CombatManagerBallisticsNullGuardPatch;
 import io.pzstorm.storm.patch.client.CoreResetLuaPatch;
+import io.pzstorm.storm.patch.client.GameClientStartClientRetryPatch;
 import io.pzstorm.storm.patch.client.IsoBulletTracerEffectsConfigNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoFallingClothingDropNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoObjectAdminSeeAllTargetAlphaPatch;
 import io.pzstorm.storm.patch.client.IsoWorldInventoryObjectRenderSpriteGuardPatch;
+import io.pzstorm.storm.patch.client.LoadingQueueStateTcpDrainPatch;
+import io.pzstorm.storm.patch.client.LoginQueueOverTcpPatch;
 import io.pzstorm.storm.patch.client.ModelManagerReloadWaitPatch;
 import io.pzstorm.storm.patch.client.PlayerDataRequestBackoffPatch;
+import io.pzstorm.storm.patch.client.PlayerProfileOverTcpPatch;
+import io.pzstorm.storm.patch.client.RequestDataOverTcpPatch;
 import io.pzstorm.storm.patch.client.VehicleChunkRehomePatch;
 import io.pzstorm.storm.patch.client.VehicleModelAttachRetryPatch;
 import io.pzstorm.storm.patch.client.VehicleRequestMergeFlagsPatch;
 import io.pzstorm.storm.patch.client.VehicleSoundsClientCreatePatch;
 import io.pzstorm.storm.patch.client.VehicleTowConstraintSnapPatch;
+import io.pzstorm.storm.patch.client.WorldStreamerChunkTcpPatch;
 import io.pzstorm.storm.patch.client.experimental.KahluaMetatableCachePatch;
 import io.pzstorm.storm.patch.client.experimental.VehicleModDataRequestPatch;
 import io.pzstorm.storm.patch.core.CommandBasePatch;
@@ -93,7 +101,9 @@ import io.pzstorm.storm.patch.networking.IsoBarricadeSyncGatePatch;
 import io.pzstorm.storm.patch.networking.IsoLightSwitchSyncGatePatch;
 import io.pzstorm.storm.patch.networking.IsoObjectSyncGatePatch;
 import io.pzstorm.storm.patch.networking.IsoWorldInventoryObjectSyncGatePatch;
+import io.pzstorm.storm.patch.networking.LoginPacketDuplicateGuardPatch;
 import io.pzstorm.storm.patch.networking.PacketReceivedPatch;
+import io.pzstorm.storm.patch.networking.PacketTypeSendDivertPatch;
 import io.pzstorm.storm.patch.networking.PlayerDownloadServerChunkActivityPatch;
 import io.pzstorm.storm.patch.networking.ReceiveSandboxOptionsPatch;
 import io.pzstorm.storm.patch.networking.ServerOptionsMaxPlayersPatch;
@@ -575,7 +585,19 @@ public class StormClassTransformers {
             registerTransformer(new CombatManagerBallisticsNullGuardPatch());
             registerTransformer(new IsoFallingClothingDropNullGuardPatch());
             registerTransformer(new IsoBulletTracerEffectsConfigNullGuardPatch());
+            registerTransformer(new RequestDataOverTcpPatch());
+            registerTransformer(new PlayerProfileOverTcpPatch());
+            registerTransformer(new ChunkRequestOverTcpPatch());
+            registerTransformer(new WorldStreamerChunkTcpPatch());
+            registerTransformer(new LoginQueueOverTcpPatch());
+            registerTransformer(new LoadingQueueStateTcpDrainPatch());
+            registerTransformer(new ChecksumOverTcpPatch());
+            registerTransformer(new GameClientStartClientRetryPatch());
         }
+
+        // Both JVMs: the server captures login-queue / checksum replies for TCP joiners, the
+        // client captures its own checksum requests.
+        registerTransformer(new PacketTypeSendDivertPatch());
 
         if (StormEnv.isStormServer()) {
             registerTransformer(new GameServerTickRatePatch());
@@ -610,6 +632,7 @@ public class StormClassTransformers {
             registerTransformer(new GameEntityBroadcastGatePatch());
             registerTransformer(new GameServerWorkshopItemsPatch());
             registerTransformer(new GameServerStalledConnectionReapPatch());
+            registerTransformer(new LoginPacketDuplicateGuardPatch());
             registerTransformer(new GameServerPlayerConnectionEventsPatch());
             registerTransformer(new RequestDataManagerFixPatch());
             registerTransformer(new PlayerDownloadServerChunkActivityPatch());
