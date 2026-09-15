@@ -18,6 +18,6 @@ installStorm fails with "Permission denied" on agentlib.dll / storm.jar while a 
 
 Versions and Steam Workshop IDs come from gradle.properties. Maven coordinates: com.sentientsimulations:project-zomboid-storm:<pzVersion>_<stormVersion>.
 
-Reference. Architecture (bootstrap chain, event system, mod loading, mod entry point): docs/mod-author-guide.md. JVM flags, sandbox options: docs/server-configuration.md. What Storm patches in PZ (behavior, perf, bug fixes): docs/what-storm-changes.md. HTTP endpoints: docs/http-api.md. Prometheus metrics (adding new ones): docs/metrics.md. Installation paths (Workshop, dedicated server, local dev): docs/installation.md. Storm Launcher (pre-game UI, client mod sync, launcher/ subproject — no PZ classes allowed in it): docs/launcher.md.
+Reference. Architecture (bootstrap chain, event system, mod loading, mod entry point): docs/mod-author-guide.md. JVM flags, sandbox options: docs/server-configuration.md. What Storm patches in PZ (behavior, perf, bug fixes): docs/what-storm-changes.md. HTTP endpoints: docs/http-api.md. The multiplayer join over TCP (session model, diverted stages, fail-soft rules, chunk-diversion invariants, PZ-update re-validation list): docs/game-port-tcp-loading.md. Prometheus metrics (adding new ones): docs/metrics.md. Installation paths (Workshop, dedicated server, local dev): docs/installation.md. Storm Launcher (pre-game UI, client mod sync, launcher/ subproject — no PZ classes allowed in it): docs/launcher.md.
 
 Metadata. To disable metadata analytics, add -DDISABLE_ANALYTICS=true.

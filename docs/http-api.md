@@ -39,6 +39,11 @@ UDP port spaces are independent, so both bind simultaneously). It starts on
 `-Dstorm.gameport.http.enabled=false`. Storm clients use it to move
 connection-phase data off RakNet's 1&nbsp;KB-packet UDP transfer machinery.
 
+The table below is the endpoint reference. For the design behind it — session
+binding, which join stages are diverted, the fail-soft rules, the chunk-diversion
+invariants and measured mass-join scaling — see
+[Game-Port TCP World Loading](game-port-tcp-loading.md).
+
 This surface is **internet-facing**: it uses a fully separate endpoint registry
 (`@GameHttpEndpoint`), so backend endpoints (`/eval`, `/reload`, client-mod
 files, …) can never leak onto it. Firewall note: port-forward rules are

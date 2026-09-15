@@ -101,6 +101,7 @@ docs/*
 !docs/metrics.md
 !docs/launcher.md
 !docs/chunk-streaming-observability.md
+!docs/game-port-tcp-loading.md
 
 CLAUDE.local.md
 
