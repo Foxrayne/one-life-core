@@ -81,6 +81,7 @@ import io.pzstorm.storm.patch.fixes.SaveLoadedTaskCrcRacePatch;
 import io.pzstorm.storm.patch.fixes.ServerCellRecalcCrashGuardPatch;
 import io.pzstorm.storm.patch.fixes.SitOnFurnitureBoxedInChairPatch;
 import io.pzstorm.storm.patch.fixes.SpriteConfigFixPatch;
+import io.pzstorm.storm.patch.fixes.SyncZonePacketSafehouseGuardPatch;
 import io.pzstorm.storm.patch.fixes.TransactionManagerPatch;
 import io.pzstorm.storm.patch.fixes.TranslatorPatch;
 import io.pzstorm.storm.patch.fixes.VehiclesDbChunkKeyPatch;
@@ -617,6 +618,7 @@ public class StormClassTransformers {
             registerTransformer(new AnimalZoneContainmentPatch());
             registerTransformer(new AnimalIgnoredTroughExpiryPatch());
             registerTransformer(new AnimalWaterSourceFailoverPatch());
+            registerTransformer(new SyncZonePacketSafehouseGuardPatch());
             registerTransformer(new IsoObjectTransmitUpdatedSpriteGuardPatch());
 
             registerTransformer(new BodyDamageUpdatePacketPatch());
