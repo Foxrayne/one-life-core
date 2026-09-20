@@ -15,12 +15,13 @@ import java.util.function.UnaryOperator;
  * exactly that with both lists every tick, ~0.9% of server main in the ATF 2026-08-26 profile).
  *
  * <p>Swapped into vanilla fields by constructor-exit advice ({@code IsoCell.processItems} / {@code
- * processWorldItems}, {@code ServerMap.releventNow}, {@code DesignationZoneAnimal.foodOnGround}).
- * Those element types ({@code InventoryItem}, {@code ServerMap.ServerCell}, {@code
- * IsoWorldInventoryObject}) override neither {@code equals} nor {@code hashCode}, so the {@code
- * HashMap} mirror's equality matches {@code ArrayList.contains}'s {@code equals} scan exactly. Do
- * not swap this under a list whose elements have a mutable {@code hashCode} — the mirror would
- * desync and {@code contains} would return stale answers.
+ * processWorldItems}, {@code ServerMap.releventNow}, {@code DesignationZoneAnimal.foodOnGround},
+ * {@code WorldRegionToMetaGrid.worldRegions}). Those element types ({@code InventoryItem}, {@code
+ * ServerMap.ServerCell}, {@code IsoWorldInventoryObject}, {@code IsoWorldRegion}) override neither
+ * {@code equals} nor {@code hashCode}, so the {@code HashMap} mirror's equality matches {@code
+ * ArrayList.contains}'s {@code equals} scan exactly. Do not swap this under a list whose elements
+ * have a mutable {@code hashCode} — the mirror would desync and {@code contains} would return stale
+ * answers.
  *
  * <p>Every {@code ArrayList} mutation path funnels through the overrides below, including the paths
  * JDK collaborators re-enter through virtually: {@code Itr.remove} → {@code remove(int)}, {@code

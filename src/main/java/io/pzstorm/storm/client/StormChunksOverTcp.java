@@ -45,7 +45,9 @@ import zombie.network.PacketTypes;
  * requests the worker still owes an answer for were never sent to the server (their UDP packet went
  * out empty) and vanilla 42.20.4 has no per-request resend, only the 60-second no-progress abort in
  * {@code requestLargeAreaZip}, so they are handed back to the main thread and re-issued as a plain
- * {@code RequestZipList} under their original request numbers (see {@link #resendOverUdp}).
+ * {@code RequestZipList} under their original request numbers (see {@link #resendOverUdp}). Every
+ * batch carries the session it was staged under, and a batch whose session is no longer current is
+ * dropped instead of fetched or re-issued, so nothing from one connection reaches the next.
  */
 public final class StormChunksOverTcp {
 
@@ -65,7 +67,12 @@ public final class StormChunksOverTcp {
     /** Requests per fallback packet; vanilla's own packet carries a whole update's worth. */
     private static final int UDP_RESEND_BATCH = 64;
 
+    private static final int MAX_RESEND_FAILURES = 3;
+
     record Staged(int requestNumber, int wx, int wy, long crc, int attempts) {}
+
+    /** Requests and the session they were staged under; they are moot once that session is gone. */
+    record Batch(StormTcpChannel.Session session, List<Staged> requests) {}
 
     /** One TCP round trip: resolves what it can out of {@code outstanding}, or throws. */
     interface Fetcher {
@@ -76,14 +83,19 @@ public final class StormChunksOverTcp {
     /** Client main thread only (staged inside updateMain, drained on its exit). */
     private static final List<Staged> staged = new ArrayList<>();
 
-    private static final LinkedBlockingQueue<List<Staged>> dispatchQueue =
-            new LinkedBlockingQueue<>();
+    /** Session {@link #staged} was filled under. Client main thread only. */
+    private static @Nullable StormTcpChannel.Session stagedSession;
+
+    private static final LinkedBlockingQueue<Batch> dispatchQueue = new LinkedBlockingQueue<>();
 
     /**
      * Requests the TCP path gave up on. Filled by the worker, drained on the client main thread by
      * {@link #dispatchStaged()}, the same thread vanilla sends its own {@code RequestZipList} from.
      */
-    private static final ConcurrentLinkedQueue<Staged> udpResend = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<Batch> udpResend = new ConcurrentLinkedQueue<>();
+
+    /** Consecutive {@link #resendOverUdp} failures. Client main thread only. */
+    private static int resendFailures;
 
     /** Session the transport last failed on; diversion stays off until a new session exists. */
     private static volatile @Nullable StormTcpChannel.Session brokenSession;
@@ -107,6 +119,7 @@ public final class StormChunksOverTcp {
                     || GameClient.instance.playerConnectSent) {
                 return false;
             }
+            stagedSession = session;
             for (WorldStreamer.ChunkRequest request : requests) {
                 staged.add(
                         new Staged(
@@ -137,11 +150,11 @@ public final class StormChunksOverTcp {
                 return;
             }
             ensureWorker();
-            dispatchQueue.add(new ArrayList<>(staged));
+            dispatchQueue.add(new Batch(stagedSession, new ArrayList<>(staged)));
             staged.clear();
         } catch (Throwable t) {
             LOGGER.error("Failed to dispatch staged chunk requests; falling back to UDP", t);
-            udpResend.addAll(staged);
+            udpResend.add(new Batch(stagedSession, new ArrayList<>(staged)));
             staged.clear();
             brokenSession = StormTcpChannel.getSession();
         }
@@ -154,22 +167,29 @@ public final class StormChunksOverTcp {
      * path, so a duplicate costs one chunk of bandwidth and nothing else. Sent with {@code
      * endPacket} rather than {@code PacketType.send}: the client-side send limiter answers an
      * exceeded budget with a silent {@code cancelPacket()}, which would lose the requests a second
-     * time. Must never throw into the woven method.
+     * time. Requests staged under an earlier session are dropped: their numbers mean nothing to the
+     * connection that replaced it. Must never throw into the woven method.
      */
     static void resendOverUdp() {
+        if (udpResend.isEmpty()) {
+            return;
+        }
+        StormTcpChannel.Session session = StormTcpChannel.getSession();
+        List<Staged> lost = List.of();
+        int from = 0;
         try {
-            if (udpResend.isEmpty()) {
-                return;
-            }
             UdpConnection connection = GameClient.connection;
             if (connection == null) {
                 // Disconnected; the requests died with the connection.
                 udpResend.clear();
                 return;
             }
-            List<Staged> lost = drainResendQueue();
+            lost = drainResendQueue(session);
+            if (lost.isEmpty()) {
+                return;
+            }
             PacketTypes.PacketType type = PacketTypes.PacketType.RequestZipList;
-            for (int from = 0; from < lost.size(); from += UDP_RESEND_BATCH) {
+            for (; from < lost.size(); from += UDP_RESEND_BATCH) {
                 List<Staged> slice =
                         lost.subList(from, Math.min(from + UDP_RESEND_BATCH, lost.size()));
                 ByteBufferWriter writer = connection.startPacket();
@@ -183,17 +203,39 @@ public final class StormChunksOverTcp {
                 connection.endPacket(
                         type.packetPriority, type.packetReliability, type.orderingChannel);
             }
+            resendFailures = 0;
             LOGGER.info("Re-issued {} chunk request(s) over UDP after a TCP failure", lost.size());
         } catch (Throwable t) {
-            LOGGER.error("Failed to re-issue chunk requests over UDP", t);
+            List<Staged> unsent = new ArrayList<>(lost.subList(from, lost.size()));
+            if (++resendFailures < MAX_RESEND_FAILURES && session != null) {
+                udpResend.add(new Batch(session, unsent));
+                LOGGER.error(
+                        "Failed to re-issue chunk requests over UDP; {} still queued",
+                        unsent.size(),
+                        t);
+            } else {
+                resendFailures = 0;
+                LOGGER.error(
+                        "Failed to re-issue chunk requests over UDP; giving up on {}",
+                        unsent.size(),
+                        t);
+            }
         }
     }
 
-    /** Empties {@link #udpResend}, oldest first. */
-    static List<Staged> drainResendQueue() {
+    /** Empties {@link #udpResend}, oldest first, and returns what {@code current} still owes. */
+    static List<Staged> drainResendQueue(@Nullable StormTcpChannel.Session current) {
         List<Staged> lost = new ArrayList<>();
-        for (Staged request; (request = udpResend.poll()) != null; ) {
-            lost.add(request);
+        int stale = 0;
+        for (Batch batch; (batch = udpResend.poll()) != null; ) {
+            if (batch.session() == current) {
+                lost.addAll(batch.requests());
+            } else {
+                stale += batch.requests().size();
+            }
+        }
+        if (stale > 0) {
+            LOGGER.info("Dropped {} chunk request(s) staged under a closed TCP session", stale);
         }
         return lost;
     }
@@ -220,15 +262,23 @@ public final class StormChunksOverTcp {
 
     private static void run() {
         while (true) {
-            List<Staged> batch;
+            Batch batch;
             try {
                 batch = dispatchQueue.take();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
             }
+            StormTcpChannel.Session session = batch.session();
+            if (session != StormTcpChannel.getSession()) {
+                continue;
+            }
             try {
-                process(batch, StormTcpChannel.getSession(), StormChunksOverTcp::fetchBatch);
+                process(
+                        batch.requests(),
+                        session,
+                        (sub, retries, outstanding) ->
+                                fetchBatch(session, sub, retries, outstanding));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
@@ -237,14 +287,14 @@ public final class StormChunksOverTcp {
     }
 
     /**
-     * Resolve one dispatched batch. Whatever is still unanswered when the transport fails, or was
-     * dispatched before the breaker tripped and is only reached now, goes to {@link #udpResend}.
+     * Resolve one dispatched batch. Whatever is still unanswered when the transport fails or the
+     * fetcher stops answering, or was dispatched before the breaker tripped and is only reached
+     * now, goes to {@link #udpResend}.
      */
-    static void process(
-            List<Staged> batch, @Nullable StormTcpChannel.Session session, Fetcher fetcher)
+    static void process(List<Staged> batch, StormTcpChannel.Session session, Fetcher fetcher)
             throws InterruptedException {
         if (session == brokenSession) {
-            udpResend.addAll(batch);
+            udpResend.add(new Batch(session, batch));
             return;
         }
         Map<Integer, Staged> outstanding = new LinkedHashMap<>();
@@ -257,11 +307,15 @@ public final class StormChunksOverTcp {
                 Thread.sleep(RETRY_DELAY_MILLIS);
                 retries = fetchAll(retries, outstanding, fetcher);
             }
+            if (!outstanding.isEmpty()) {
+                throw new IllegalStateException(
+                        "chunk transfer left " + outstanding.size() + " request(s) unanswered");
+            }
         } catch (InterruptedException e) {
             throw e;
         } catch (Throwable t) {
             brokenSession = session;
-            udpResend.addAll(outstanding.values());
+            udpResend.add(new Batch(session, new ArrayList<>(outstanding.values())));
             LOGGER.warn(
                     "Chunk transfer over TCP failed; re-issuing {} request(s) over UDP and staying"
                             + " on UDP for this session: {}",
@@ -285,12 +339,14 @@ public final class StormChunksOverTcp {
     }
 
     private static void fetchBatch(
-            List<Staged> batch, List<Staged> retries, Map<Integer, Staged> outstanding)
+            StormTcpChannel.Session session,
+            List<Staged> batch,
+            List<Staged> retries,
+            Map<Integer, Staged> outstanding)
             throws Exception {
         HttpRequest.Builder builder = StormTcpChannel.authenticatedRequest("/storm/game/chunks");
-        if (builder == null) {
-            // Session gone (disconnect mid-flight); the requests are moot.
-            return;
+        if (builder == null || session != StormTcpChannel.getSession()) {
+            throw new IllegalStateException("TCP session closed mid-transfer");
         }
         HttpResponse<byte[]> response =
                 StormTcpChannel.send(
@@ -380,8 +436,10 @@ public final class StormChunksOverTcp {
     /** Test hook. */
     static void reset() {
         staged.clear();
+        stagedSession = null;
         dispatchQueue.clear();
         udpResend.clear();
+        resendFailures = 0;
         brokenSession = null;
     }
 

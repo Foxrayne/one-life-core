@@ -62,7 +62,7 @@ class StormChunksOverTcpTest implements UnitTest {
                 });
 
         assertEquals(2, calls.get(), "no TCP attempt after the failure");
-        assertEquals(numbers(batch(20, 25)), numbers(StormChunksOverTcp.drainResendQueue()));
+        assertEquals(numbers(batch(20, 25)), numbers(StormChunksOverTcp.drainResendQueue(SESSION)));
     }
 
     @Test
@@ -73,7 +73,7 @@ class StormChunksOverTcpTest implements UnitTest {
                 (sub, retries, outstanding) -> {
                     throw new IllegalStateException("timeout");
                 });
-        StormChunksOverTcp.drainResendQueue();
+        StormChunksOverTcp.drainResendQueue(SESSION);
 
         // Dispatched before the failure, reached by the worker after it. Counted rather than
         // failed from inside the fetcher: process() would swallow the assertion as a transport
@@ -83,7 +83,7 @@ class StormChunksOverTcpTest implements UnitTest {
                 batch(3, 4), SESSION, (sub, retries, outstanding) -> fetches.incrementAndGet());
 
         assertEquals(0, fetches.get(), "a broken session must not be fetched from");
-        assertEquals(numbers(batch(3, 4)), numbers(StormChunksOverTcp.drainResendQueue()));
+        assertEquals(numbers(batch(3, 4)), numbers(StormChunksOverTcp.drainResendQueue(SESSION)));
     }
 
     @Test
@@ -100,7 +100,7 @@ class StormChunksOverTcpTest implements UnitTest {
                     retries.add(new Staged(1, 101, 201, 1001L, 1));
                 });
 
-        assertEquals(List.of(1), numbers(StormChunksOverTcp.drainResendQueue()));
+        assertEquals(List.of(1), numbers(StormChunksOverTcp.drainResendQueue(SESSION)));
     }
 
     @Test
@@ -114,7 +114,53 @@ class StormChunksOverTcpTest implements UnitTest {
                     }
                 });
 
-        assertTrue(StormChunksOverTcp.drainResendQueue().isEmpty());
+        assertTrue(StormChunksOverTcp.drainResendQueue(SESSION).isEmpty());
+    }
+
+    @Test
+    void requestTheServerNeverAnsweredTripsTheBreakerAndGoesToUdp() throws Exception {
+        StormChunksOverTcp.process(
+                batch(0, 3),
+                SESSION,
+                (sub, retries, outstanding) -> {
+                    outstanding.remove(0);
+                    outstanding.remove(2);
+                });
+        assertEquals(List.of(1), numbers(StormChunksOverTcp.drainResendQueue(SESSION)));
+
+        AtomicInteger fetches = new AtomicInteger();
+        StormChunksOverTcp.process(
+                batch(3, 1), SESSION, (sub, retries, outstanding) -> fetches.incrementAndGet());
+        assertEquals(0, fetches.get(), "an unanswered request must trip the breaker");
+    }
+
+    @Test
+    void requestsStagedUnderAnEarlierSessionAreNeverResent() throws Exception {
+        StormChunksOverTcp.process(
+                batch(0, 3),
+                SESSION,
+                (sub, retries, outstanding) -> {
+                    throw new IllegalStateException("timeout");
+                });
+
+        StormTcpChannel.Session next =
+                new StormTcpChannel.Session("http://127.0.0.1:1", "token", "test");
+        assertTrue(StormChunksOverTcp.drainResendQueue(next).isEmpty());
+        assertTrue(
+                StormChunksOverTcp.drainResendQueue(SESSION).isEmpty(),
+                "stale requests are dropped, not kept for a later drain");
+    }
+
+    @Test
+    void requestsWithNoCurrentSessionAreNeverResent() throws Exception {
+        StormChunksOverTcp.process(
+                batch(0, 3),
+                SESSION,
+                (sub, retries, outstanding) -> {
+                    throw new IllegalStateException("timeout");
+                });
+
+        assertTrue(StormChunksOverTcp.drainResendQueue(null).isEmpty());
     }
 
     /**

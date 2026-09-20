@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.pzstorm.storm.UnitTest;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.jar.asm.ClassReader;
 import net.bytebuddy.jar.asm.ClassVisitor;
 import net.bytebuddy.jar.asm.FieldVisitor;
@@ -125,6 +128,24 @@ class FastContainsSwapPatchesTest implements UnitTest {
                 constructorPutfields(raw, "allWorldRegions"),
                 constructorPutfields(transformed, "allWorldRegions"),
                 "the advice must not write allWorldRegions");
+    }
+
+    @Test
+    void worldRegionToMetaGridWithoutTheFieldIsLeftAsVanilla() throws Exception {
+        byte[] renamed =
+                new ByteBuddy()
+                        .subclass(Object.class)
+                        .name("zombie.iso.areas.isoregion.metagrid.WorldRegionToMetaGrid")
+                        .defineField("regions", ArrayList.class, Visibility.PRIVATE)
+                        .make()
+                        .getBytes();
+
+        byte[] transformed = new WorldRegionToMetaGridFastContainsPatch().transform(renamed);
+
+        for (Map.Entry<String, Integer> entry : copyOfCallsPerMethod(transformed).entrySet()) {
+            assertEquals(0, entry.getValue(), "no swap without the field: " + entry.getKey());
+        }
+        assertEquals(fieldAccessFlags(renamed), fieldAccessFlags(transformed));
     }
 
     private static int constructorPutfields(byte[] classBytes, String fieldName) {

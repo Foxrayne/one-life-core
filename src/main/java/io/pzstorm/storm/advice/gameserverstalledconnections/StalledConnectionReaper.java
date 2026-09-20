@@ -4,6 +4,7 @@ import static io.pzstorm.storm.logging.StormLogger.LOGGER;
 
 import io.pzstorm.storm.connection.ConnectionStage;
 import io.pzstorm.storm.metrics.StormConnectionStageMetrics;
+import java.lang.ref.WeakReference;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.raknet.UdpConnection;
@@ -56,7 +57,7 @@ import zombie.network.LoginQueue;
  *       moment loading stalls, so this exemption cannot be held open by keepalive traffic.
  * </ul>
  *
- * <p>Fully-connected players are never candidates. {@link #FIRST_SEEN_MS} and {@link #SLOT_GUID}
+ * <p>Fully-connected players are never candidates. {@link #FIRST_SEEN_MS} and {@link #SLOT_OWNER}
  * are written only from the server main thread inside {@link #sweep()}, which {@code
  * GameServer.launchCommandHandler} exit advice calls once per tick — {@code GameServer.disconnect}
  * touches chat and connection buffers whose locks invert against the network thread, so the sweep
@@ -79,11 +80,17 @@ public class StalledConnectionReaper {
     /** Matches {@code UdpEngine.connectionArray}, which is a fixed 256 entries. */
     private static final int MAX_SLOTS = 256;
 
-    /** First time the sweep saw each slot's current occupant, guarded by {@link #SLOT_GUID}. */
+    /** First time the sweep saw each slot's current occupant, guarded by {@link #SLOT_OWNER}. */
     private static final long[] FIRST_SEEN_MS = new long[MAX_SLOTS];
 
-    /** GUID owning each slot's {@link #FIRST_SEEN_MS} entry; slots are reused across clients. */
-    private static final long[] SLOT_GUID = new long[MAX_SLOTS];
+    /**
+     * Connection owning each slot's {@link #FIRST_SEEN_MS} entry. Keyed on the object because a
+     * RakNet GUID survives a reconnect: a client whose first attempt was rejected comes back into
+     * the same slot with the same GUID, and must not inherit that attempt's age. Weak so a closed
+     * connection's buffers are not pinned until the slot is reused.
+     */
+    @SuppressWarnings("unchecked")
+    private static final WeakReference<UdpConnection>[] SLOT_OWNER = new WeakReference[MAX_SLOTS];
 
     /**
      * Last chunk-request wave per connection GUID, stamped by {@link #recordChunkActivity} from
@@ -220,11 +227,16 @@ public class StalledConnectionReaper {
         if (slot < 0 || slot >= MAX_SLOTS) {
             return 0L;
         }
-        if (SLOT_GUID[slot] != connection.getConnectedGUID()) {
+        if (!ownsSlot(connection, slot)) {
             return 0L;
         }
         long firstSeenMs = FIRST_SEEN_MS[slot];
         return firstSeenMs == 0L ? 0L : nowMs - firstSeenMs;
+    }
+
+    private static boolean ownsSlot(UdpConnection connection, int slot) {
+        WeakReference<UdpConnection> owner = SLOT_OWNER[slot];
+        return owner != null && owner.get() == connection;
     }
 
     /**
@@ -291,14 +303,14 @@ public class StalledConnectionReaper {
                     continue;
                 }
                 if (connection.isFullyConnected()) {
-                    SLOT_GUID[slot] = 0L;
+                    SLOT_OWNER[slot] = null;
                     FIRST_SEEN_MS[slot] = 0L;
                     continue;
                 }
                 long guid = connection.getConnectedGUID();
-                if (SLOT_GUID[slot] != guid || FIRST_SEEN_MS[slot] == 0L) {
+                if (!ownsSlot(connection, slot) || FIRST_SEEN_MS[slot] == 0L) {
                     // First sweep that sees this occupant: start its clock now.
-                    SLOT_GUID[slot] = guid;
+                    SLOT_OWNER[slot] = new WeakReference<>(connection);
                     FIRST_SEEN_MS[slot] = now;
                     continue;
                 }
@@ -323,7 +335,7 @@ public class StalledConnectionReaper {
                         slot);
                 StormConnectionStageMetrics.recordReaped(stage);
                 ConnectionManager.log("Storm", "stalled-connection-reap", connection);
-                SLOT_GUID[slot] = 0L;
+                SLOT_OWNER[slot] = null;
                 FIRST_SEEN_MS[slot] = 0L;
                 GameServer.disconnect(connection, "connection-stalled-timeout");
                 engine.forceDisconnect(guid, "connection-stalled-timeout");

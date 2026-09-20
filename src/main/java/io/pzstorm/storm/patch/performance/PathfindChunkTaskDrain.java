@@ -41,16 +41,19 @@ import java.util.function.LongSupplier;
  * sequence it already sees on a server quiet enough for the queue to stay empty.
  *
  * <p>{@code -Dstorm.pathfind.chunkTaskBudgetMs=<n>} sets the per-frame budget in milliseconds
- * (default {@value #DEFAULT_BUDGET_MILLIS}); {@code 0} turns the drain off and leaves vanilla's ten
- * per frame. If the task interface cannot be resolved the drain latches off and vanilla runs.
+ * (default {@value #DEFAULT_BUDGET_MILLIS}, capped at {@value #MAX_BUDGET_MILLIS}); {@code 0} turns
+ * the drain off and leaves vanilla's ten per frame. If the task interface cannot be resolved the
+ * drain latches off and vanilla runs.
  */
 public final class PathfindChunkTaskDrain {
 
     static final long DEFAULT_BUDGET_MILLIS = 10L;
 
+    /** A frame is 50 ms; a budget past a second only starves {@code findPath}. */
+    static final long MAX_BUDGET_MILLIS = 1000L;
+
     private static final long BUDGET_NANOS =
-            Math.max(0L, Long.getLong("storm.pathfind.chunkTaskBudgetMs", DEFAULT_BUDGET_MILLIS))
-                    * 1_000_000L;
+            budgetNanos(Long.getLong("storm.pathfind.chunkTaskBudgetMs", DEFAULT_BUDGET_MILLIS));
 
     private static final String TASK_INTERFACE = "zombie.pathfind.nativeCode.IPathfindTask";
 
@@ -77,6 +80,10 @@ public final class PathfindChunkTaskDrain {
         }
         int drained = drain(chunkTasks, returned, execute, System::nanoTime, BUDGET_NANOS);
         PathfindChunkTaskDrainMetrics.record(drained, !chunkTasks.isEmpty());
+    }
+
+    static long budgetNanos(long budgetMillis) {
+        return Math.min(MAX_BUDGET_MILLIS, Math.max(0L, budgetMillis)) * 1_000_000L;
     }
 
     /**
@@ -110,6 +117,9 @@ public final class PathfindChunkTaskDrain {
         try {
             Method method = Class.forName(TASK_INTERFACE).getDeclaredMethod("execute");
             method.setAccessible(true);
+            LOGGER.info(
+                    "Pathfinder chunk task drain is on with a {} ms budget per frame",
+                    BUDGET_NANOS / 1_000_000L);
             return task -> invoke(method, task);
         } catch (ReflectiveOperationException | RuntimeException e) {
             latchedOff = true;

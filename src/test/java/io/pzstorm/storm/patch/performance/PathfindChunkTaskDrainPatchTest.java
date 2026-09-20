@@ -74,6 +74,17 @@ class PathfindChunkTaskDrainPatchTest implements UnitTest {
     }
 
     @Test
+    void budgetIsClampedBeforeItIsScaledToNanos() {
+        assertEquals(0L, PathfindChunkTaskDrain.budgetNanos(-5L));
+        assertEquals(0L, PathfindChunkTaskDrain.budgetNanos(0L));
+        assertEquals(10_000_000L, PathfindChunkTaskDrain.budgetNanos(10L));
+        assertEquals(
+                PathfindChunkTaskDrain.MAX_BUDGET_MILLIS * 1_000_000L,
+                PathfindChunkTaskDrain.budgetNanos(Long.MAX_VALUE),
+                "unclamped, the multiply overflows and the drain runs one task per frame");
+    }
+
+    @Test
     void drainSurvivesANanoTimeWrap() {
         Queue<Object> queue = new ArrayDeque<>(List.of("a", "b", "c"));
         Queue<Object> returned = new ArrayDeque<>();
@@ -165,7 +176,7 @@ class PathfindChunkTaskDrainPatchTest implements UnitTest {
                 List.of("chunkTaskQueue", "taskReturnQueue"),
                 patched.drainArguments,
                 "argument order: swapped, the drain would empty the return queue into the work"
-                    + " queue");
+                        + " queue");
 
         assertTrue(vanilla.polls > 0, "sanity: vanilla's loops poll their queues");
         assertEquals(vanilla.polls, patched.polls, "every vanilla poll survives behind the drain");

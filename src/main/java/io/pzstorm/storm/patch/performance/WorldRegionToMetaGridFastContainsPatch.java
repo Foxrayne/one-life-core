@@ -1,5 +1,7 @@
 package io.pzstorm.storm.patch.performance;
 
+import static io.pzstorm.storm.logging.StormLogger.LOGGER;
+
 import io.pzstorm.storm.core.StormClassTransformer;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.asm.ModifierAdjustment;
@@ -33,6 +35,9 @@ import net.bytebuddy.pool.TypePool;
  * left alone: its hot operation is {@code remove} of an element that is present, which the mirror
  * does not make cheaper.
  *
+ * <p>Runs on the client, so it fails soft: if the field is gone the patch logs and leaves the class
+ * as vanilla, because a transformer that throws makes the class fail to load.
+ *
  * <p>Client JVMs only by registration: {@code IsoRegions.update} skips the rebuild when {@code
  * GameServer.server} is set.
  */
@@ -51,11 +56,11 @@ public class WorldRegionToMetaGridFastContainsPatch extends StormClassTransforme
             ClassFileLocator locator, TypePool typePool, DynamicType.Builder<Object> builder) {
         TypeDescription target = typePool.describe(TARGET).resolve();
         if (target.getDeclaredFields().filter(ElementMatchers.named("worldRegions")).isEmpty()) {
-            throw new IllegalStateException(
-                    "WorldRegionToMetaGridFastContainsPatch: WorldRegionToMetaGrid no longer"
-                            + " declares worldRegions — the constructor swap would silently leave"
-                            + " the vanilla list in place. Re-verify against the current game"
-                            + " source.");
+            LOGGER.error(
+                    "WorldRegionToMetaGridFastContainsPatch is off: WorldRegionToMetaGrid no longer"
+                            + " declares worldRegions. The vanilla list stays in place. Re-verify"
+                            + " against the current game source.");
+            return builder;
         }
         return builder.visit(
                         new ModifierAdjustment()

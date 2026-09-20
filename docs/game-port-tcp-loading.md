@@ -199,7 +199,7 @@ vanilla behavior, never a stuck client.
 | `StormChecksumOverTcp` | Resets the comparer to `Init`; the vanilla exchange starts from scratch |
 | `StormRequestDataOverTcp` | Downloads all four payloads before applying any, so a mid-download failure touches no state |
 | `StormPlayerProfilesOverTcp` | Installs nothing; the vanilla method's own UDP path runs |
-| `StormChunksOverTcp` | Per-session breaker stops diverting; the requests still unanswered are re-issued over UDP under their original request numbers. Vanilla 42.20.4 has no per-request resend, only the 60 s no-progress abort |
+| `StormChunksOverTcp` | Per-session breaker stops diverting; the requests still unanswered are re-issued over UDP under their original request numbers. A request the server left out of a 200 reply counts as a failure too. Every batch carries the session it was staged under, and a batch whose session is no longer current is dropped, never fetched or re-issued, so a reconnect cannot send the old connection's request numbers. A re-issue that throws keeps its unsent requests for up to 3 tries. Vanilla 42.20.4 has no per-request resend, only the 60 s no-progress abort |
 | `StormPacketDivert` | `tryDivert` returns false on any buffer problem and the vanilla send runs |
 
 ## Rider fixes

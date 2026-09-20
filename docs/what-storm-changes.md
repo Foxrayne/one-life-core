@@ -57,6 +57,7 @@ JVM unless noted, and is always-on unless it points at a tunable flag in
 - **Animation-recorder check short-circuit** — `AnimationPlayerRecorder.isAnimationRecorderActive(IsoMovingObject)` is reached per moving object per tick from `IsoMovingObject.updateAnimationRecorder()` and per vehicle from `BaseVehicle.update`. With the debug recorder off (always, in normal play) vanilla still takes the `animationRecorderTypeMask` lock and then walks every player slot through `IsoPlayer.anyPlayer` before the predicate's own `animationRecorderMinRangeOfPlayer > 0` check says no. `AnimationPlayerRecorderIsActivePatch` returns `false` up front when `animationRecorderActiveAll` is off, the type mask is empty and the min-range trigger is unset, reading the three statics via `@Advice.FieldValue` (no reflection on the hot path). 0.83% of the ATF main thread at 145 connections (scan #8). On by default on the server; client behind `-Dstorm.experimental.clientperf=true`.
 - **Shared per-tick cell animal list for mother reattachment** — `IsoAnimal.reattachBackToMom()` calls `IsoCell.getAnimals()`, a filter over every moving object in the loaded cell, whenever an animal's mother isn't loaded, on a 50 game-time-unit timer that at server tick rates fires every ~12 ticks; orphans whose mother is gone for good retry forever. `IsoAnimalReattachBackToMomCellAnimalsMemoPatch` substitutes that one call site (`MemberSubstitution` scoped to `reattachBackToMom`; `getAnimals()` is untouched for Lua and everyone else) with `ReattachCellAnimalsMemo`, which builds the list once per `IsoWorld.getFrameNo()` and cell identity and hands the same list to every orphan in the tick. 93 orphans × ~7,700 objects ≈ 8 full walks per tick on ATF prod (scan #8) becomes one. Server-only.
 - **No server-side FMOD parameter updates for animals** — `IsoGameCharacter.updateEmitter()` runs `getFMODParameters().update()` then ticks the emitter; on the server the emitter is a `DummyCharacterSoundEmitter` so the values go nowhere, but `ParameterFootstepMaterial2` still calls `IsoGridSquare.getPuddlesInGround()`, whose cache is bypassed on the server (`GameServer.server || ...`), recomputing per animal per tick. `IsoPlayer.updateInternal1` already guards its call with `!GameServer.server`; `IsoAnimal.update` calls it twice unguarded. `IsoGameCharacterUpdateEmitterServerSkipPatch` skips the body when `animal && GameServer.server` (the flag `IsoAnimal` sets through the `IsoPlayer` constructor); zombies and players are untouched. 1.75% of main at scan #7, 17.6% of `IsoAnimal.update` at scan #8. Server-only.
+- **Native pathfinder chunk-task drain by time budget** — `PathfindNative.addChunkToWorld` serialises each loaded chunk into a direct `ByteBuffer` on a `ChunkUpdateTask` and queues it on `PathfindNativeThread.chunkTaskQueue`, an unbounded queue that `updateThread` drains at ten tasks per frame. The pathfinder thread is saturated by `findPath` on a busy server, so frames stretch, chunk adds outrun the drain, and every queued task pins its buffer for the life of the boot (7.6 GiB of direct buffers 5.9 hours into a 110-player boot, with the native nav map hours behind the world). `PathfindChunkTaskDrainPatch` puts enter advice on `updateThread` that executes queued chunk tasks in order until the queue is empty or a time budget is spent, hands each one to `taskReturnQueue` as vanilla does, and then lets the vanilla loop run. `-Dstorm.pathfind.chunkTaskBudgetMs` sets the budget (default `10`, capped at `1000`, `0` = vanilla); the effective value is logged when the drain first runs. If `IPathfindTask.execute` cannot be resolved the drain latches off and vanilla applies. Counters `storm_pathfind_chunk_tasks_drained_total` and `storm_pathfind_chunk_task_budget_exhausted_total`. Server-only. PZ-update re-validation: `PathfindNativeThread.updateThread`, its `chunkTaskQueue` and `taskReturnQueue` fields, and `IPathfindTask.execute`.
 
 ## Behavioral overrides
 
@@ -165,6 +166,20 @@ enables Storm-core client Java features:
   they never handshake. See [Game-Port TCP World
   Loading](game-port-tcp-loading.md) for the session model, the diverted
   stages, the fail-soft rules and measured mass-join scaling.
+
+- **Region-list dedupe on join** — when new region data arrives,
+  `IsoRegions.update` runs `WorldRegionToMetaGrid.clientProcessBuildings`,
+  which calls `DataRoot.getIsoWorldRegionsInCell` 18 times per changed cell
+  (the cell and its 8 neighbours, two passes). Each call dedupes with
+  `ArrayList.contains` on the list it is filling, so a join that delivers the
+  whole loaded area at once stalls the main thread (two ~2.9 s stalls in a
+  2026-09-14 client JFR, 279 of 535 samples in that `contains`).
+  `WorldRegionToMetaGridFastContainsPatch` swaps the `worldRegions` scratch
+  list for `StormFastContainsList` at construction; results and order are
+  identical and the dedupe cost drops about 40%. Fails soft: if the field is
+  gone the patch logs and leaves the class as vanilla. PZ-update
+  re-validation: the `WorldRegionToMetaGrid.worldRegions` field and
+  `IsoWorldRegion` still inheriting `equals`/`hashCode` from `Object`.
 
 - **Client socket retry on connect** — `GameClient.startClient` draws its
   local UDP port at random from a 10 000-port window and binds it once. On a
