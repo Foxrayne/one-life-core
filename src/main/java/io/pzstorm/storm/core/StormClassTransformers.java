@@ -9,6 +9,7 @@ import io.pzstorm.storm.patch.client.ChunkRequestOverTcpPatch;
 import io.pzstorm.storm.patch.client.CombatManagerBallisticsNullGuardPatch;
 import io.pzstorm.storm.patch.client.CoreResetLuaPatch;
 import io.pzstorm.storm.patch.client.GameClientStartClientRetryPatch;
+import io.pzstorm.storm.patch.client.ImageDataCreateSteamAvatarLeakPatch;
 import io.pzstorm.storm.patch.client.IsoBulletTracerEffectsConfigNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoFallingClothingDropNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoObjectAdminSeeAllTargetAlphaPatch;
@@ -597,6 +598,7 @@ public class StormClassTransformers {
             registerTransformer(new ChecksumOverTcpPatch());
             registerTransformer(new GameClientStartClientRetryPatch());
             registerTransformer(new WorldRegionToMetaGridFastContainsPatch());
+            registerTransformer(new ImageDataCreateSteamAvatarLeakPatch());
         }
 
         // Both JVMs: the server captures login-queue / checksum replies for TCP joiners, the
