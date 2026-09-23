@@ -40,8 +40,8 @@ public final class JoinFlow {
      */
     static final String MIN_INTEGRATION_STORM_VERSION = "2.5.1";
 
-    /** Same key the bootstrap's StormCoreUpdate HEADs: {@code storm/core/<pzVersion>/storm.jar}. */
-    static final String CORE_CDN_URL_TEMPLATE = "https://guspuffy.com/storm/core/%s/storm.jar";
+    /** Same explicit opt-in used by the One/Life bootstrap; never consult upstream by default. */
+    static final String CORE_UPDATE_URL_PROPERTY = "storm.core.updateUrl";
 
     private static final String SNAPSHOT_SUFFIX = "-SNAPSHOT";
 
@@ -959,8 +959,11 @@ public final class JoinFlow {
         if (split <= 0 || local.endsWith(SNAPSHOT_SUFFIX)) {
             return local;
         }
-        CdnUpdate.Remote remote =
-                CdnUpdate.fetch(String.format(CORE_CDN_URL_TEMPLATE, local.substring(0, split)));
+        String updateUrl = System.getProperty(CORE_UPDATE_URL_PROPERTY, "");
+        if (updateUrl.isBlank()) {
+            return local;
+        }
+        CdnUpdate.Remote remote = CdnUpdate.fetch(updateUrl);
         return withCdnCore(local, remote == null ? null : remote.version());
     }
 

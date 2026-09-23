@@ -54,9 +54,6 @@ public final class StormCoreUpdate {
     /** Test override for the Zomboid user dir the stage area lives under. */
     static final String ZOMBOID_DIR_PROPERTY = "storm.core.zomboidDir";
 
-    /** Must match deployStormJar's upload key in build.gradle. */
-    static final String DEFAULT_URL_TEMPLATE = "https://guspuffy.com/storm/core/%s/storm.jar";
-
     static final String JAR_NAME = "storm.jar";
 
     private static final Pattern JAR_PATTERN =
@@ -132,13 +129,13 @@ public final class StormCoreUpdate {
         return new LocalJar(m.group(1), m.group(2), m.group(3) != null);
     }
 
-    /** Property override (empty disables), else the default key for this game build. */
+    /** One/Life is a reviewed fork: only an explicit update URL may replace its Core. */
     static String updateUrl(String pzVersion) {
         String override = System.getProperty(URL_PROPERTY);
         if (override != null) {
             return override.isBlank() ? null : override;
         }
-        return String.format(DEFAULT_URL_TEMPLATE, pzVersion);
+        return null;
     }
 
     /**

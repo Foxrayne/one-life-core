@@ -18,6 +18,21 @@ class GameProcessTrackerTest {
 
     private Process spawned;
 
+    public static class Child {
+        public static void main(String[] args) throws Exception {
+            Thread.sleep(Long.parseLong(args[0]));
+        }
+    }
+
+    private Process child(long millis) throws Exception {
+        String executable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
+        return new ProcessBuilder(
+                Path.of(System.getProperty("java.home"), "bin", executable).toString(),
+                "-cp", Path.of(GameProcessTrackerTest.class.getProtectionDomain()
+                        .getCodeSource().getLocation().toURI()).toString(),
+                Child.class.getName(), Long.toString(millis)).start();
+    }
+
     @BeforeEach
     void setUp() {
         System.setProperty("storm.launcher.zomboidDir", tmp.resolve("Zomboid").toString());
@@ -33,7 +48,7 @@ class GameProcessTrackerTest {
 
     @Test
     void reapKillsRecordedProcess() throws Exception {
-        spawned = new ProcessBuilder("sleep", "60").start();
+        spawned = child(60_000);
         GameProcessTracker.record(spawned);
         Assertions.assertTrue(Files.isRegularFile(GameProcessTracker.recordFile()));
 
@@ -46,7 +61,7 @@ class GameProcessTrackerTest {
 
     @Test
     void reapSparesProcessWithMismatchedIdentity() throws Exception {
-        spawned = new ProcessBuilder("sleep", "60").start();
+        spawned = child(60_000);
         Properties props = new Properties();
         props.setProperty("pid", Long.toString(spawned.pid()));
         // a recycled pid: same number, different process start time
@@ -69,7 +84,7 @@ class GameProcessTrackerTest {
 
     @Test
     void reapOfExitedProcessConsumesRecord() throws Exception {
-        spawned = new ProcessBuilder("true").start();
+        spawned = child(100);
         GameProcessTracker.record(spawned);
         spawned.waitFor(5, TimeUnit.SECONDS);
 

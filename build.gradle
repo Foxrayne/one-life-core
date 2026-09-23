@@ -164,9 +164,15 @@ tasks.register('printStormVersion') {
 }
 
 tasks.register('extractZomboidFiles', Copy) {
-	from getLocalProperty('gameDir')
+	from(getLocalProperty('gameDir')) {
+		include 'stdlib.lbc', 'stdlib.lua'
+	}
+	// Test a supplied server JAR without replacing the installed game.
+	from(providers.gradleProperty('gameJar').orElse(
+		getLocalProperty('gameDir').map { "${it}/projectzomboid.jar" })) {
+		rename { 'projectzomboid.jar' }
+	}
 	into layout.buildDirectory.dir('zomboid-classpath')
-	include 'projectzomboid.jar', 'stdlib.lbc', 'stdlib.lua'
 }
 
 jar.getDestinationDirectory().set(new File(buildDir, 'libs'))
@@ -203,7 +209,22 @@ dependencies {
 }
 
 test {
-	useJUnitPlatform()
+	// Windows/local binary verification does not boot a Linux dedicated server.
+	// Keep the full live-server suite available when this opt-in flag is absent.
+	if (providers.gradleProperty('offlineTests').isPresent()) {
+		exclude 'io/pzstorm/storm/liveserver/**'
+		filter {
+			// These scan arbitrary user saves, not controlled test fixtures.
+			// They remain in the full suite; offline results do not certify the Java popman.
+			excludeTestsMatching 'io.pzstorm.storm.popman.ZpopCellTest.realSaveFilesRoundTripByteIdentically'
+			excludeTestsMatching 'io.pzstorm.storm.popman.ZpopVirtualFileTest.realVirtualFilesRoundTripByteIdentically'
+		}
+	}
+	// perf-tagged tests boot a server plus twenty child JVMs and run for minutes; they are
+	// on-demand only, via the tcpLoadTest task
+	useJUnitPlatform {
+		excludeTags 'perf'
+	}
 	systemProperty 'storm.testing', 'true'
 	// without this the StormEnv.isStormServer() block in StormClassTransformers never runs,
 	// so AllPatchesIntegrationTest silently skips every server-only patch
@@ -273,6 +294,53 @@ tasks.register('clientPatchTest', Test) {
 	}
 }
 
+// Mass-join performance test for the game-port TCP loading path. Not wired into check — it boots a
+// dedicated server, spawns twenty client JVMs and runs for minutes. Run it directly:
+//   ./gradlew tcpLoadTest
+//   ./gradlew tcpLoadTest -Dstorm.perftest.clients=40 -Dstorm.perftest.budgetSeconds=300
+tasks.register('tcpLoadTest', Test) {
+	useJUnitPlatform {
+		includeTags 'perf'
+	}
+	systemProperty 'storm.testing', 'true'
+	systemProperty 'storm.server', 'true'
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	outputs.upToDateWhen { false }
+
+	[
+		'storm.perftest.clients',
+		'storm.perftest.gridWidth',
+		'storm.perftest.budgetSeconds'
+	].each { key ->
+		if (System.getProperty(key) != null) {
+			systemProperty key, System.getProperty(key)
+		}
+	}
+
+	testLogging {
+		events "passed", "skipped", "failed", "standardOut", "standardError"
+		showStandardStreams = true
+		showExceptions = true
+		showCauses = true
+		showStackTraces = true
+		exceptionFormat = "full"
+	}
+
+	doFirst {
+		def serverDir = getLocalProperty('serverPath').get()
+		systemProperty 'storm.server.path', serverDir
+		def ldLibPath = [
+			"${serverDir}/natives",
+			"${serverDir}/linux64",
+			"${serverDir}/jre64/lib/amd64",
+			System.getenv('LD_LIBRARY_PATH') ?: ''
+		].findAll { it }.join(':')
+		environment 'LD_LIBRARY_PATH', ldLibPath
+	}
+}
+
 tasks.named('check') {
 	dependsOn tasks.named('clientPatchTest')
 }
@@ -292,6 +360,12 @@ jacocoTestReport {
 
 	additionalClassDirs(files(zomboidClasses).asFileTree.matching {
 		include 'zombie/**'
+		// Supplied server JAR also contains these four files under the wrong package
+		// path. They are not loadable there; keep coverage on the canonical classes.
+		exclude 'zombie/network/ObjectChangePacket.class'
+		exclude 'zombie/network/ObjectChangePacketSDAC.class'
+		exclude 'zombie/network/RequestItemsForContainerPacket.class'
+		exclude 'zombie/network/RequestItemsPacketSDAC.class'
 	})
 	additionalSourceDirs(files(zomboidSrcDir))
 
@@ -454,6 +528,9 @@ tasks.register('installStorm', Sync) {
 
 	from('launcher/dist/StormLauncher.sh') {
 		into 'launcher'
+		// Enforce Unix newlines even when packaging from a Windows working tree.
+		filter(org.apache.tools.ant.filters.FixCrLfFilter,
+			eol: org.apache.tools.ant.filters.FixCrLfFilter.CrLf.newInstance('lf'))
 		filePermissions { unix(0755) }
 	}
 
@@ -462,6 +539,37 @@ tasks.register('installStorm', Sync) {
 	}
 
 	into destDir
+}
+
+// The upstream distribution intentionally omits Gradle's start scripts, which
+// makes installDist reject its own output on a second run. Use a local Sync.
+tasks.register('stageOneLifeDistribution', Sync) {
+	dependsOn tasks.named('jar')
+	with distributions.main.contents
+	into layout.buildDirectory.dir('install/storm')
+}
+
+// Local-only release assembly: deliberately has no install/upload/CDN dependency.
+tasks.register('stageOneLifeUpdate', Sync) {
+	group = 'distribution'
+	description = 'Stages the branded Core locally without publishing or installing it.'
+	dependsOn 'stageOneLifeDistribution', 'writeModInfo',
+		project(':bootstrap').tasks.named('shadowJar'), project(':launcher').tasks.named('jar')
+	into layout.buildDirectory.dir('local-update/One Life Core/Contents/mods/storm')
+	from(tasks.named('stageOneLifeDistribution').map { it.destinationDir }) { into '42' }
+	from(tasks.named('writeModInfo')) { into '42' }
+	from('media') { into '42/media' }
+	from(project(':bootstrap').tasks.named('shadowJar')) { into 'bootstrap' }
+	from('c/agentlib.dll') { into 'bootstrap' }
+	from(project(':launcher').tasks.named('jar')) { into 'launcher' }
+	from('launcher/dist/StormLauncher.bat') { into 'launcher' }
+	from('launcher/dist/StormLauncher.sh') {
+		into 'launcher'
+		filter(org.apache.tools.ant.filters.FixCrLfFilter,
+			eol: org.apache.tools.ant.filters.FixCrLfFilter.CrLf.newInstance('lf'))
+		filePermissions { unix(0755) }
+	}
+	from('LICENSE') { into 'common' }
 }
 
 // Publishes storm.jar for the bootstrap's CDN self-update (see StormCoreUpdate in :bootstrap):

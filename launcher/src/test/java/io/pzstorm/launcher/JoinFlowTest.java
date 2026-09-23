@@ -69,6 +69,19 @@ class JoinFlowTest {
     }
 
     @Test
+    void brandedCoreVersionDefaultsToInstalledBuild() throws IOException {
+        String previous = System.getProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
+        try {
+            System.clearProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
+            assertEquals("42.20.4_2.11.0",
+                    JoinFlow.effectiveStormVersion(configWithStorm("42.20.4_2.11.0")));
+        } finally {
+            if (previous == null) System.clearProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
+            else System.setProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY, previous);
+        }
+    }
+
+    @Test
     void writesHandoffAsJavaProperties() throws IOException {
         ServerProfile profile = profile();
         // Properties escaping must survive what the old key=value lines could not; the server

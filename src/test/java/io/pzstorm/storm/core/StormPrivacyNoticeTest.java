@@ -10,7 +10,8 @@ class StormPrivacyNoticeTest implements UnitTest {
     void shouldShipPolicyInsideStormJar() {
         String text = StormPrivacyNotice.load();
         Assertions.assertNotNull(text, "privacy-policy.txt must be copied into Storm's resources");
-        Assertions.assertTrue(text.contains("PRIVACY POLICY"), "unexpected policy text");
+        Assertions.assertTrue(text.contains("One/Life Core Launcher"), "missing fork branding");
+        Assertions.assertTrue(text.contains("Privacy Notice"), "unexpected policy text");
         Assertions.assertNotEquals("unversioned", StormPrivacyNotice.parseVersion(text));
     }
 

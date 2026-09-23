@@ -48,6 +48,13 @@ public final class GameLaunch {
     public static final String WORKSHOP_MODS_PROPERTY = "storm.workshop.mods";
 
     /**
+     * Steam's workshop content dir for the game ({@code steamapps/workshop/content/108600}), so
+     * Storm catalogs mod jars from the library the launcher actually used instead of guessing from
+     * the game's working dir. Keep the name in sync with {@code io.pzstorm.storm.core.StormPaths}.
+     */
+    public static final String WORKSHOP_DIR_PROPERTY = "storm.workshop.dir";
+
+    /**
      * Opts the game JVM into boot-mods substitution: Storm loads the {@link
      * #WORKSHOP_MODS_PROPERTY} list at boot instead of the local "default" profile, so the
      * connect-time reload finds everything already loaded. Keep in sync with {@code
@@ -266,8 +273,14 @@ public final class GameLaunch {
 
         List<String> launchMods = oneLifeFallbackMods(profile, serverMods);
         if (launchMods != null && !launchMods.isEmpty()) {
+            Path workshopDir = workshopContentDir(config, bootstrapDir);
             Path joinHandoff =
-                    writeJoinHandoff(launchMods, joinChecksums, joinFingerprint, warnings);
+                    writeJoinHandoff(
+                            launchMods,
+                            joinChecksums,
+                            joinFingerprint,
+                            workshopDir == null ? null : pathArgFor(jvm, workshopDir),
+                            warnings);
             if (joinHandoff != null) {
                 command.add("-D" + JOIN_FILE_PROPERTY + "=" + pathArgFor(jvm, joinHandoff));
             }
@@ -290,6 +303,11 @@ public final class GameLaunch {
             // -agentpath / -Xmx / -Dstorm.* silently no-op ("unknown option" in game.log).
             // The vanilla Steam Launch Options paste ends in `--` for the same reason.
             command.add("--");
+        }
+
+        command.addAll(config.globalGameArgs);
+        if (profile != null) {
+            command.addAll(profile.extraGameArgs);
         }
 
         if (profile != null && autoJoinFile == null) {
@@ -432,14 +450,32 @@ public final class GameLaunch {
      * system property names Storm's consumers read. A write failure only costs the workshop mod
      * gate and the join prewarm, never the launch.
      */
+    /**
+     * The Storm item's own install location is the strongest evidence of which library Steam put
+     * the server's workshop items in; the acf next to the game install is the fallback for a
+     * bootstrap dir outside any workshop item (local dev). Null when neither is known.
+     */
+    static Path workshopContentDir(LauncherConfig config, Path bootstrapDir) {
+        Path ownItemContent = LauncherConfig.workshopAppDirOf(bootstrapDir);
+        if (ownItemContent != null) {
+            return ownItemContent;
+        }
+        Path acf = WorkshopStaleScan.findAppWorkshopAcf(config);
+        return acf == null ? null : acf.getParent().resolve("content").resolve("108600");
+    }
+
     private static Path writeJoinHandoff(
             List<String> serverMods,
             String joinChecksums,
             String joinFingerprint,
+            String workshopDir,
             List<String> warnings) {
         Properties handoff = new Properties();
         handoff.setProperty(WORKSHOP_MODS_PROPERTY, String.join(";", serverMods));
         handoff.setProperty(JOIN_BOOT_MODS_PROPERTY, "true");
+        if (workshopDir != null && !workshopDir.isEmpty()) {
+            handoff.setProperty(WORKSHOP_DIR_PROPERTY, workshopDir);
+        }
         if (joinChecksums != null && !joinChecksums.isEmpty()) {
             handoff.setProperty(JOIN_CHECKSUMS_PROPERTY, joinChecksums);
         }

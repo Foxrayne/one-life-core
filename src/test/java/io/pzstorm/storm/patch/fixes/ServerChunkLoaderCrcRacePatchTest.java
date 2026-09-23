@@ -76,11 +76,15 @@ class ServerChunkLoaderCrcRacePatchTest implements UnitTest {
         byte[] rawClass = readClass(SAVE_LOADED_TASK);
 
         Counts raw = count(rawClass, OUTER, "crcSave", "save");
-        assertTrue(
-                raw.targetMethodFieldReads > 0,
-                "vanilla SaveLoadedTask.save should read ServerChunkLoader.crcSave directly; got "
-                        + raw.targetMethodFieldReads
-                        + " — the vanilla shape changed, re-verify the patch");
+        if (raw.targetMethodFieldReads == 0) {
+            // Audited Linux 42.20.4 variant already allocates CRC32 locally inside save().
+            // Accept only these exact bytes, not every unknown no-match implementation.
+            assertEquals(
+                    "f500b25e82c9f33d3e90b0ccf44af3aaf6a7d463d9f94a24d1da78a9d3f2f710",
+                    java.util.HexFormat.of().formatHex(
+                            java.security.MessageDigest.getInstance("SHA-256").digest(rawClass)),
+                    "Unrecognized save() variant without shared CRC reads");
+        }
 
         byte[] transformed = new SaveLoadedTaskCrcRacePatch().transform(rawClass);
         assertNotNull(transformed);

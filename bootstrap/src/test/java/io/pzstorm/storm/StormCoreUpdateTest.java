@@ -70,10 +70,8 @@ class StormCoreUpdateTest {
     }
 
     @Test
-    void updateUrlDefaultsToPzVersionedKeyAndHonorsOverride() {
-        assertEquals(
-                "https://guspuffy.com/storm/core/42.20.2/storm.jar",
-                StormCoreUpdate.updateUrl("42.20.2"));
+    void brandedCoreUpdatesAreOptInAndHonorOverride() {
+        assertNull(StormCoreUpdate.updateUrl("42.20.2"));
 
         System.setProperty(StormCoreUpdate.URL_PROPERTY, "http://example.test/storm.jar");
         assertEquals("http://example.test/storm.jar", StormCoreUpdate.updateUrl("42.20.2"));
