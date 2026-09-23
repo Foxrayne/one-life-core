@@ -11,6 +11,7 @@ import io.pzstorm.storm.advice.gameserverstalledconnections.StalledConnectionRea
 import io.pzstorm.storm.connection.ConnectionStage;
 import io.pzstorm.storm.connection.RakNetConnectionCapConfig;
 import io.pzstorm.storm.connection.StormPlayersHandler;
+import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.List;
 import zombie.core.raknet.RakNetPeerInterface;
@@ -231,7 +232,11 @@ public final class StormConnectionStageMetrics {
     private static final int MAX_SLOTS = 256;
 
     private static final long[] FIRST_SAMPLED_MS = new long[MAX_SLOTS];
-    private static final long[] SLOT_GUID = new long[MAX_SLOTS];
+
+    /** Keyed on the object, as in {@link StalledConnectionReaper}: a GUID survives a reconnect. */
+    @SuppressWarnings("unchecked")
+    private static final WeakReference<UdpConnection>[] SLOT_OWNER = new WeakReference[MAX_SLOTS];
+
     private static final boolean[] SEEN_PENDING = new boolean[MAX_SLOTS];
     private static final boolean[] LOGIN_OBSERVED = new boolean[MAX_SLOTS];
 
@@ -331,9 +336,9 @@ public final class StormConnectionStageMetrics {
         if (slot < 0 || slot >= MAX_SLOTS) {
             return 0L;
         }
-        long guid = connection.getConnectedGUID();
-        if (SLOT_GUID[slot] != guid || FIRST_SAMPLED_MS[slot] == 0L) {
-            SLOT_GUID[slot] = guid;
+        WeakReference<UdpConnection> owner = SLOT_OWNER[slot];
+        if (owner == null || owner.get() != connection || FIRST_SAMPLED_MS[slot] == 0L) {
+            SLOT_OWNER[slot] = new WeakReference<>(connection);
             FIRST_SAMPLED_MS[slot] = now;
             SEEN_PENDING[slot] = !fullyConnected;
             LOGIN_OBSERVED[slot] = false;

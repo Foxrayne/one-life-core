@@ -19,6 +19,7 @@ import io.pzstorm.storm.los.StormServerLosConfig;
 import io.pzstorm.storm.los.ZombieVehicleOcclusion;
 import io.pzstorm.storm.map.StormCellUnloadBudget;
 import io.pzstorm.storm.patch.fixes.AnimalZoneContainment;
+import io.pzstorm.storm.patch.fixes.AnimalZoneSafehouseGuard;
 import io.pzstorm.storm.patch.fixes.HutchDirtRateFix;
 import io.pzstorm.storm.patch.networking.GameServerTickRatePatch.UpdateLimitFactory;
 import io.pzstorm.storm.patch.networking.ServerFpsConfig;
@@ -79,6 +80,8 @@ public final class StormPerformanceSandboxApplier {
     public static final String OPT_HUTCH_DIRT_RATE_PERCENT = "Storm.HutchDirtRatePercent";
     public static final String OPT_ANIMAL_ZONE_CONTAINMENT = "Storm.AnimalZoneContainment";
     public static final String OPT_ANIMAL_ZONE_LEASH_DISTANCE = "Storm.AnimalZoneLeashDistance";
+    public static final String OPT_ANIMAL_ZONE_SAFEHOUSE_PROTECTION =
+            "Storm.AnimalZoneSafehouseProtection";
     public static final String OPT_ENTITY_REMOVE_FAST_PATH = "Storm.EntityRemoveFastPath";
     public static final String OPT_VEHICLE_ALPHA_CHECK_SKIP = "Storm.VehicleAlphaCheckSkip";
     public static final String OPT_VEHICLE_SOUND_RELEVANCE_FAST_PATH =
@@ -141,6 +144,7 @@ public final class StormPerformanceSandboxApplier {
         applyHutchDirtRatePercent();
         applyAnimalZoneContainment();
         applyAnimalZoneLeashDistance();
+        applyAnimalZoneSafehouseProtection();
         applyEntityRemoveFastPath();
         applyVehicleAlphaCheckSkip();
         applyVehicleSoundRelevanceFastPath();
@@ -335,6 +339,20 @@ public final class StormPerformanceSandboxApplier {
             return;
         }
         AnimalZoneContainment.setLeashDistance(value);
+    }
+
+    /**
+     * Pushes {@link #OPT_ANIMAL_ZONE_SAFEHOUSE_PROTECTION} through {@link
+     * AnimalZoneSafehouseGuard#setEnabled(boolean)} — server authority over animal-zone edits.
+     * While on, a zone overlapping a safehouse is editable only by that safehouse's owner and
+     * members. {@code false} restores vanilla, where any player can edit any zone.
+     */
+    private static void applyAnimalZoneSafehouseProtection() {
+        Boolean value = readBooleanOption(OPT_ANIMAL_ZONE_SAFEHOUSE_PROTECTION);
+        if (value == null) {
+            return;
+        }
+        AnimalZoneSafehouseGuard.setEnabled(value);
     }
 
     /**

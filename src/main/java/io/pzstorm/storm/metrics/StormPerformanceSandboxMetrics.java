@@ -13,6 +13,7 @@ import io.pzstorm.storm.los.StormServerLosConfig;
 import io.pzstorm.storm.los.ZombieVehicleOcclusion;
 import io.pzstorm.storm.map.StormCellUnloadBudget;
 import io.pzstorm.storm.patch.fixes.AnimalZoneContainment;
+import io.pzstorm.storm.patch.fixes.AnimalZoneSafehouseGuard;
 import io.pzstorm.storm.patch.fixes.HutchDirtRateFix;
 import io.pzstorm.storm.patch.networking.GameServerTickRatePatch;
 import io.pzstorm.storm.patch.networking.ServerLockFpsConfig;
@@ -293,6 +294,17 @@ public final class StormPerformanceSandboxMetrics {
                                     + " pen walls.")
                     .register(StormPrometheus.registry());
 
+    private static final Gauge ANIMAL_ZONE_SAFEHOUSE_PROTECTION =
+            Gauge.builder()
+                    .name("storm_animal_zone_safehouse_protection")
+                    .help(
+                            "Whether the server restricts edits of animal zones overlapping a"
+                                    + " safehouse to that safehouse's owner and members. Sourced"
+                                    + " from the Storm.AnimalZoneSafehouseProtection sandbox"
+                                    + " option. 1 = protected; 0 = vanilla, where any player can"
+                                    + " edit any zone (default).")
+                    .register(StormPrometheus.registry());
+
     private static final Gauge ANIMAL_ZONE_LEASH_DISTANCE =
             Gauge.builder()
                     .name("storm_animal_zone_leash_distance")
@@ -455,6 +467,7 @@ public final class StormPerformanceSandboxMetrics {
         HUTCH_DIRT_RATE_PERCENT.set(HutchDirtRateFix.DEFAULT_RATE_PERCENT);
         ANIMAL_ZONE_CONTAINMENT.set(AnimalZoneContainment.DEFAULT_ENABLED ? 1 : 0);
         ANIMAL_ZONE_LEASH_DISTANCE.set(AnimalZoneContainment.DEFAULT_LEASH_DISTANCE);
+        ANIMAL_ZONE_SAFEHOUSE_PROTECTION.set(AnimalZoneSafehouseGuard.DEFAULT_ENABLED ? 1 : 0);
         CELL_UNLOAD_BUDGET_PER_TICK.set(StormCellUnloadBudget.DEFAULT_BUDGET);
         ENTITY_REMOVE_FAST_PATH.set(StormEntityIndex.DEFAULT_ENABLED ? 1 : 0);
         VEHICLE_ALPHA_CHECK_SKIP.set(StormVehicleAlphaCheckSkip.DEFAULT_ENABLED ? 1 : 0);
@@ -548,6 +561,10 @@ public final class StormPerformanceSandboxMetrics {
 
     public static void setAnimalZoneContainment(boolean enabled) {
         ANIMAL_ZONE_CONTAINMENT.set(enabled ? 1 : 0);
+    }
+
+    public static void setAnimalZoneSafehouseProtection(boolean enabled) {
+        ANIMAL_ZONE_SAFEHOUSE_PROTECTION.set(enabled ? 1 : 0);
     }
 
     public static void setAnimalZoneLeashDistance(int tiles) {

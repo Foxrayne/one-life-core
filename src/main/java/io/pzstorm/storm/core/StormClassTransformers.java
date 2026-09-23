@@ -9,6 +9,7 @@ import io.pzstorm.storm.patch.client.ChunkRequestOverTcpPatch;
 import io.pzstorm.storm.patch.client.CombatManagerBallisticsNullGuardPatch;
 import io.pzstorm.storm.patch.client.CoreResetLuaPatch;
 import io.pzstorm.storm.patch.client.GameClientStartClientRetryPatch;
+import io.pzstorm.storm.patch.client.ImageDataCreateSteamAvatarLeakPatch;
 import io.pzstorm.storm.patch.client.IsoBulletTracerEffectsConfigNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoFallingClothingDropNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoObjectAdminSeeAllTargetAlphaPatch;
@@ -81,6 +82,7 @@ import io.pzstorm.storm.patch.fixes.SaveLoadedTaskCrcRacePatch;
 import io.pzstorm.storm.patch.fixes.ServerCellRecalcCrashGuardPatch;
 import io.pzstorm.storm.patch.fixes.SitOnFurnitureBoxedInChairPatch;
 import io.pzstorm.storm.patch.fixes.SpriteConfigFixPatch;
+import io.pzstorm.storm.patch.fixes.SyncZonePacketSafehouseGuardPatch;
 import io.pzstorm.storm.patch.fixes.TransactionManagerPatch;
 import io.pzstorm.storm.patch.fixes.TranslatorPatch;
 import io.pzstorm.storm.patch.fixes.VehiclesDbChunkKeyPatch;
@@ -260,6 +262,7 @@ import io.pzstorm.storm.patch.performance.ObjectRenderEffectsUpdateStaticPatch;
 import io.pzstorm.storm.patch.performance.PacketLimitMetricsPatch;
 import io.pzstorm.storm.patch.performance.PacketValidatorUpdatePatch;
 import io.pzstorm.storm.patch.performance.PacketsCacheLimitBypassPatch;
+import io.pzstorm.storm.patch.performance.PathfindChunkTaskDrainPatch;
 import io.pzstorm.storm.patch.performance.PathfindNativeRemoveChunkPatch;
 import io.pzstorm.storm.patch.performance.PerformanceProbeGatePatch;
 import io.pzstorm.storm.patch.performance.PlayerDownloadServerRemoveOlderPatch;
@@ -318,6 +321,7 @@ import io.pzstorm.storm.patch.performance.WarManagerUpdatePatch;
 import io.pzstorm.storm.patch.performance.WeatherFxScanSkipPatch;
 import io.pzstorm.storm.patch.performance.WorldMapServerWriteSavefilePatch;
 import io.pzstorm.storm.patch.performance.WorldMapVisitedServerUpdatePatch;
+import io.pzstorm.storm.patch.performance.WorldRegionToMetaGridFastContainsPatch;
 import io.pzstorm.storm.patch.performance.WorldSimulationUpdatePatch;
 import io.pzstorm.storm.patch.performance.WorldSoundServerChunkIndexPatch;
 import io.pzstorm.storm.patch.performance.WornItemsMutationEpochPatch;
@@ -593,6 +597,8 @@ public class StormClassTransformers {
             registerTransformer(new LoadingQueueStateTcpDrainPatch());
             registerTransformer(new ChecksumOverTcpPatch());
             registerTransformer(new GameClientStartClientRetryPatch());
+            registerTransformer(new WorldRegionToMetaGridFastContainsPatch());
+            registerTransformer(new ImageDataCreateSteamAvatarLeakPatch());
         }
 
         // Both JVMs: the server captures login-queue / checksum replies for TCP joiners, the
@@ -617,6 +623,7 @@ public class StormClassTransformers {
             registerTransformer(new AnimalZoneContainmentPatch());
             registerTransformer(new AnimalIgnoredTroughExpiryPatch());
             registerTransformer(new AnimalWaterSourceFailoverPatch());
+            registerTransformer(new SyncZonePacketSafehouseGuardPatch());
             registerTransformer(new IsoObjectTransmitUpdatedSpriteGuardPatch());
 
             registerTransformer(new BodyDamageUpdatePacketPatch());
@@ -692,6 +699,7 @@ public class StormClassTransformers {
             registerTransformer(new PolygonalMap2RemoveChunkPatch());
             registerTransformer(new PathfindNativeRemoveChunkPatch());
             registerTransformer(new ChunkUpdateTaskBufferSizingPatch());
+            registerTransformer(new PathfindChunkTaskDrainPatch());
             registerTransformer(new ZombiePopManRemoveChunkPatch());
             registerTransformer(new AnimalPopManRemoveChunkPatch());
             registerTransformer(new IsoChunkAddVehiclesPatch());
