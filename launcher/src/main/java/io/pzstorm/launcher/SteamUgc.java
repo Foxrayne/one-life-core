@@ -40,7 +40,7 @@ public final class SteamUgc implements AutoCloseable {
     /** k_EResultOK. */
     static final int RESULT_OK = 1;
 
-    private static final long POLL_MILLIS = 500;
+    private static final long POLL_MILLIS = 100;
     private static final long STALL_TIMEOUT_MILLIS = 180_000;
     private static final long SUBSCRIBE_TIMEOUT_MILLIS = 30_000;
 
