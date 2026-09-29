@@ -126,24 +126,25 @@ public final class JoinFlow {
             Log.info("Server did not publish workshop items to pre-update.");
             return;
         }
-        List<String> update = new ArrayList<>();
-        List<String> verify = new ArrayList<>();
-        for (String item : items) {
-            if (!forceModUpdates && scan != null && scan.isCurrent(item)) {
-                verify.add(item);
-            } else {
-                update.add(item);
-            }
-        }
+        Partition partition = partitionItems(items, forceModUpdates, scan);
+        List<String> update = partition.update;
+        List<String> verify = partition.verify;
+        List<String> check = partition.check;
         if (!verify.isEmpty()) {
             Log.info(
                     verify.size()
                             + " item(s) already match the published workshop version —"
                             + " quick state check only.");
         }
+        if (!check.isEmpty()) {
+            Log.info(
+                    check.size()
+                            + " item(s) are not visible to the anonymous Workshop API —"
+                            + " published-version check via Steam instead of a full confirm.");
+        }
         WorkshopUpdate.Result result;
         try {
-            result = WorkshopUpdate.run(config, update, verify);
+            result = WorkshopUpdate.run(config, update, verify, check);
         } catch (IOException e) {
             Log.warn(
                     "Workshop pre-update failed: "
@@ -661,6 +662,45 @@ public final class JoinFlow {
                             + " — updating every item via Steam.");
             return null;
         }
+    }
+
+    /** Result of {@link #partitionItems}: which bucket each item landed in. */
+    static final class Partition {
+        final List<String> update;
+        final List<String> verify;
+
+        /** Items the anonymous Web API can't see. */
+        final List<String> check;
+
+        Partition(List<String> update, List<String> verify, List<String> check) {
+            this.update = update;
+            this.verify = verify;
+            this.check = check;
+        }
+    }
+
+    /**
+     * A forced join or a failed scan sends everything to the full update. Otherwise items proven
+     * current get the quick state check, items the anonymous Web API can't see get the logged-in
+     * published-version check, and the rest get the full update.
+     */
+    static Partition partitionItems(
+            List<String> items, boolean forceModUpdates, WorkshopStaleScan.Scan scan) {
+        List<String> update = new ArrayList<>();
+        List<String> verify = new ArrayList<>();
+        List<String> check = new ArrayList<>();
+        for (String item : items) {
+            if (forceModUpdates || scan == null) {
+                update.add(item);
+            } else if (scan.isCurrent(item)) {
+                verify.add(item);
+            } else if (!scan.isPublished(item)) {
+                check.add(item);
+            } else {
+                update.add(item);
+            }
+        }
+        return new Partition(update, verify, check);
     }
 
     /**

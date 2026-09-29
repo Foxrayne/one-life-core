@@ -100,22 +100,53 @@ public final class WorkshopUpdate {
     public static Result run(
             LauncherConfig config, List<String> updateItemIds, List<String> verifyItemIds)
             throws IOException, InterruptedException {
-        List<String> workshopItemIds = new ArrayList<>(updateItemIds);
-        for (String id : verifyItemIds) {
-            workshopItemIds.add(SteamUpdateChild.VERIFY_PREFIX + id);
-        }
+        return run(config, updateItemIds, verifyItemIds, List.of());
+    }
+
+    /**
+     * {@code checkItemIds} get the logged-in published-version check ({@link
+     * SteamUpdateChild#CHECK_PREFIX}); the child gives any that fail it the full update.
+     */
+    public static Result run(
+            LauncherConfig config,
+            List<String> updateItemIds,
+            List<String> verifyItemIds,
+            List<String> checkItemIds)
+            throws IOException, InterruptedException {
+        List<String> workshopItemIds = childArgs(updateItemIds, verifyItemIds, checkItemIds);
         if (workshopItemIds.isEmpty()) {
             return new Result(true, 0, 0, false);
         }
         String startMessage =
-                "Updating "
-                        + updateItemIds.size()
-                        + " workshop item(s) via Steam"
-                        + (verifyItemIds.isEmpty()
-                                ? ""
-                                : " (+" + verifyItemIds.size() + " quick state check(s))")
-                        + " …";
+                startMessage(updateItemIds.size(), verifyItemIds.size(), checkItemIds.size());
         return runChild(config, workshopItemIds, startMessage);
+    }
+
+    /** The child's argv ids: plain, then {@code verify:}, then {@code check:}. */
+    static List<String> childArgs(
+            List<String> updateItemIds, List<String> verifyItemIds, List<String> checkItemIds) {
+        List<String> args = new ArrayList<>(updateItemIds);
+        for (String id : verifyItemIds) {
+            args.add(SteamUpdateChild.VERIFY_PREFIX + id);
+        }
+        for (String id : checkItemIds) {
+            args.add(SteamUpdateChild.CHECK_PREFIX + id);
+        }
+        return args;
+    }
+
+    static String startMessage(int updateCount, int verifyCount, int checkCount) {
+        StringBuilder message =
+                new StringBuilder("Updating ")
+                        .append(updateCount)
+                        .append(" workshop item(s) via Steam");
+        if (verifyCount > 0) {
+            message.append(" (+").append(verifyCount).append(" quick state check(s))");
+        }
+        if (checkCount > 0) {
+            message.append(" (+").append(checkCount).append(" published-version check(s))");
+        }
+        return message.append(" …").toString();
     }
 
     /**

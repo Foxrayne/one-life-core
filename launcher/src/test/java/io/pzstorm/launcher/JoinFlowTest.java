@@ -73,7 +73,8 @@ class JoinFlowTest {
         String previous = System.getProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
         try {
             System.clearProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
-            assertEquals("42.20.4_2.11.0",
+            assertEquals(
+                    "42.20.4_2.11.0",
                     JoinFlow.effectiveStormVersion(configWithStorm("42.20.4_2.11.0")));
         } finally {
             if (previous == null) System.clearProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
@@ -274,5 +275,54 @@ class JoinFlowTest {
         JoinFlow.ServerRequirements unarmed =
                 new JoinFlow.ServerRequirements(List.of(), List.of("modA"));
         assertNull(unarmed.joinChecksums(), "a pre-v2 server publishes no checksums");
+    }
+
+    @Test
+    void partitionRoutesCurrentItemsToVerify() {
+        WorkshopStaleScan.Scan scan =
+                new WorkshopStaleScan.Scan(Map.of("100", 50L), Map.of("100", 50L));
+        JoinFlow.Partition partition = JoinFlow.partitionItems(List.of("100"), false, scan);
+        assertEquals(List.of(), partition.update);
+        assertEquals(List.of("100"), partition.verify);
+        assertEquals(List.of(), partition.check, "proven current, not the unpublished path");
+    }
+
+    @Test
+    void partitionRoutesUnpublishedItemsToCheck() {
+        // installed but not current, and absent from the published map entirely (result 9)
+        WorkshopStaleScan.Scan scan = new WorkshopStaleScan.Scan(Map.of("200", 10L), Map.of());
+        JoinFlow.Partition partition = JoinFlow.partitionItems(List.of("200"), false, scan);
+        assertEquals(List.of(), partition.update);
+        assertEquals(List.of(), partition.verify);
+        assertEquals(List.of("200"), partition.check);
+    }
+
+    @Test
+    void partitionRoutesPublishedButStaleItemsToUpdate() {
+        // installed, visible to the anonymous API, but the published timestamp diverged
+        WorkshopStaleScan.Scan scan =
+                new WorkshopStaleScan.Scan(Map.of("300", 10L), Map.of("300", 99L));
+        JoinFlow.Partition partition = JoinFlow.partitionItems(List.of("300"), false, scan);
+        assertEquals(List.of("300"), partition.update);
+        assertEquals(List.of(), partition.verify);
+        assertEquals(List.of(), partition.check);
+    }
+
+    @Test
+    void partitionForcedJoinSendsEverythingToUpdate() {
+        WorkshopStaleScan.Scan scan =
+                new WorkshopStaleScan.Scan(Map.of("100", 50L, "200", 10L), Map.of("100", 50L));
+        JoinFlow.Partition partition = JoinFlow.partitionItems(List.of("100", "200"), true, scan);
+        assertEquals(List.of("100", "200"), partition.update);
+        assertEquals(List.of(), partition.verify);
+        assertEquals(List.of(), partition.check, "forced joins never use the fast path");
+    }
+
+    @Test
+    void partitionWithNoScanSendsEverythingToUpdate() {
+        JoinFlow.Partition partition = JoinFlow.partitionItems(List.of("100", "200"), false, null);
+        assertEquals(List.of("100", "200"), partition.update);
+        assertEquals(List.of(), partition.verify);
+        assertEquals(List.of(), partition.check, "a failed scan falls back to updating everything");
     }
 }

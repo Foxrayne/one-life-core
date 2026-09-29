@@ -127,6 +127,22 @@ class WorkshopStaleScanTest {
     }
 
     @Test
+    void isPublishedReflectsWhetherTheAnonymousApiReturnedTheItem() {
+        // result 1 with a time_updated -> present in published; result 9 (hidden/deleted) -> absent
+        String json =
+                "{\"response\":{\"result\":1,\"resultcount\":2,\"publishedfiledetails\":["
+                        + "{\"publishedfileid\":\"2335368829\",\"result\":1,"
+                        + "\"time_updated\":1779337481},"
+                        + "{\"publishedfileid\":\"3676481910\",\"result\":9}"
+                        + "]}}";
+        Map<String, Long> published = WorkshopStaleScan.parsePublishedTimestamps(json);
+        WorkshopStaleScan.Scan scan = new WorkshopStaleScan.Scan(Map.of(), published);
+        assertTrue(scan.isPublished("2335368829"), "result 1 with time_updated is published");
+        assertFalse(scan.isPublished("3676481910"), "result 9 never enters the published map");
+        assertFalse(scan.isPublished("999999999"), "never mentioned in the response at all");
+    }
+
+    @Test
     void staleAmongIgnoresStaleItemsOutsideTheAttemptedSet() {
         WorkshopStaleScan.Scan scan =
                 new WorkshopStaleScan.Scan(Map.of("200", 10L), Map.of("200", 50L, "300", 50L));

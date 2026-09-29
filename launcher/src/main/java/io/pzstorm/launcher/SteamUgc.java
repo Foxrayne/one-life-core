@@ -10,9 +10,12 @@ import java.lang.invoke.MethodHandle;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -76,6 +79,51 @@ public final class SteamUgc implements AutoCloseable {
 
     /** DownloadItemResult_t received so far: workshop item id -> EResult. */
     private final Map<Long, Integer> downloadResults = new HashMap<>();
+
+    /**
+     * Optional exports behind {@link #publishedTimes} and {@link #installTimestamp}. An older
+     * steam_api may lack any of them; those methods then report "unavailable" and callers fall back
+     * to the full {@link #updateItem} path. A missing export never fails {@link #connect}.
+     */
+    private final MethodHandle createQueryUGCDetailsRequest;
+
+    private final MethodHandle sendQueryUGCRequest;
+    private final MethodHandle getQueryUGCResult;
+    private final MethodHandle releaseQueryUGCRequest;
+    private final MethodHandle getItemInstallInfo;
+    private final MethodHandle dispatchGetAPICallResult;
+
+    /**
+     * SteamAPICallCompleted_t: k_iSteamUtilsCallbacks (700) + 3. {@code SteamAPICall_t
+     * m_hAsyncCall} at 0, {@code int m_iCallback} at 8, {@code uint32 m_cubParam} at 12 on both
+     * pack sizes.
+     */
+    private static final int API_CALL_COMPLETED_CALLBACK = 703;
+
+    /** SteamUGCQueryCompleted_t: k_iSteamUGCCallbacks (3400) + 1. */
+    private static final int UGC_QUERY_COMPLETED_CALLBACK = 3401;
+
+    private static final int PUBLISHED_TIMES_BATCH_SIZE = 50;
+    private static final long PUBLISHED_TIMES_TIMEOUT_MILLIS = 15_000;
+
+    /** SteamUGCDetails_t is ~9.8 KB on either pack size; headroom so Steam can't overrun it. */
+    private static final long DETAILS_STRUCT_SIZE = 16_384;
+
+    private static final int INSTALL_FOLDER_BUFFER_SIZE = 1024;
+
+    /** 2010-01-01T00:00:00Z, the floor for a plausible m_rtimeUpdated. */
+    private static final long EARLIEST_SANE_TIME_UPDATED = 1_262_304_000L;
+
+    private static final long ONE_DAY_SECONDS = 86_400;
+
+    /** A call result fetched by {@link #pumpCallbacks}; {@code data} is valid only when !failed. */
+    private record ApiCallResult(boolean failed, int callbackId, MemorySegment data) {}
+
+    /** Call results ready for pickup, keyed by SteamAPICall_t handle. */
+    private final Map<Long, ApiCallResult> apiCallResults = new HashMap<>();
+
+    /** SteamAPICall_t handles {@link #publishedTimes} is waiting on. */
+    private final Set<Long> pendingApiCalls = new HashSet<>();
 
     private SteamUgc(Arena arena, SymbolLookup lib) throws Throwable {
         this.arena = arena;
@@ -233,6 +281,79 @@ public final class SteamUgc implements AutoCloseable {
         this.callbackMsg = arena.allocate(24);
         String os = System.getProperty("os.name", "").toLowerCase();
         this.packSmall = !os.contains("win");
+
+        // Signatures and struct layouts checked against Steamworks.NET
+        // (rlabrecque/Steamworks.NET@ba71581f, autogen/NativeMethods.cs, SteamStructs.cs) and
+        // gbe_fork (Detanup01/gbe_fork, sdk/steam/isteamugc.h), matching SteamAPI_SteamUGC_v021.
+        createQueryUGCDetailsRequest =
+                downcall(
+                        linker,
+                        lib,
+                        "SteamAPI_ISteamUGC_CreateQueryUGCDetailsRequest",
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_INT),
+                        true);
+        sendQueryUGCRequest =
+                downcall(
+                        linker,
+                        lib,
+                        "SteamAPI_ISteamUGC_SendQueryUGCRequest",
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG),
+                        true);
+        getQueryUGCResult =
+                downcall(
+                        linker,
+                        lib,
+                        "SteamAPI_ISteamUGC_GetQueryUGCResult",
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_BOOLEAN,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS),
+                        true);
+        releaseQueryUGCRequest =
+                downcall(
+                        linker,
+                        lib,
+                        "SteamAPI_ISteamUGC_ReleaseQueryUGCRequest",
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_BOOLEAN,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_LONG),
+                        true);
+        getItemInstallInfo =
+                downcall(
+                        linker,
+                        lib,
+                        "SteamAPI_ISteamUGC_GetItemInstallInfo",
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_BOOLEAN,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS),
+                        true);
+        dispatchGetAPICallResult =
+                downcall(
+                        linker,
+                        lib,
+                        "SteamAPI_ManualDispatch_GetAPICallResult",
+                        FunctionDescriptor.of(
+                                ValueLayout.JAVA_BOOLEAN,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS),
+                        true);
     }
 
     private static MethodHandle downcall(
@@ -509,8 +630,9 @@ public final class SteamUgc implements AutoCloseable {
 
     /**
      * With manual dispatch (any steam_api from the last several years) this drains the callback
-     * queue and records DownloadItemResult_t payloads; without it, it falls back to the classic
-     * RunCallbacks pump and {@link #updateItem} settles on a grace timer instead.
+     * queue and records DownloadItemResult_t payloads and the call results {@link #publishedTimes}
+     * waits on; without it, it falls back to the classic RunCallbacks pump and {@link #updateItem}
+     * settles on a grace timer instead.
      */
     private void pumpCallbacks() {
         try {
@@ -534,6 +656,33 @@ public final class SteamUgc implements AutoCloseable {
                         downloadResults.put(
                                 downloadResultItemId(data, packSmall),
                                 downloadResultCode(data, packSmall));
+                    } else if (callbackId == API_CALL_COMPLETED_CALLBACK && paramLen >= 16) {
+                        MemorySegment data =
+                                callbackMsg.get(ValueLayout.ADDRESS, 8).reinterpret(paramLen);
+                        long asyncCall = data.get(ValueLayout.JAVA_LONG_UNALIGNED, 0);
+                        if (pendingApiCalls.contains(asyncCall)) {
+                            int callbackType = data.get(ValueLayout.JAVA_INT_UNALIGNED, 8);
+                            int cubParam = data.get(ValueLayout.JAVA_INT_UNALIGNED, 12);
+                            MemorySegment resultData = arena.allocate(Math.max(cubParam, 1));
+                            MemorySegment failedFlag = arena.allocate(ValueLayout.JAVA_BOOLEAN);
+                            boolean available =
+                                    dispatchGetAPICallResult != null
+                                            && (boolean)
+                                                    dispatchGetAPICallResult.invoke(
+                                                            pipe,
+                                                            asyncCall,
+                                                            resultData,
+                                                            cubParam,
+                                                            callbackType,
+                                                            failedFlag);
+                            if (available) {
+                                boolean failed = failedFlag.get(ValueLayout.JAVA_BOOLEAN, 0);
+                                apiCallResults.put(
+                                        asyncCall,
+                                        new ApiCallResult(failed, callbackType, resultData));
+                                pendingApiCalls.remove(asyncCall);
+                            }
+                        }
                     }
                 } finally {
                     dispatchFreeLast.invoke(pipe);
@@ -555,6 +704,237 @@ public final class SteamUgc implements AutoCloseable {
 
     static int downloadResultCode(MemorySegment data, boolean packSmall) {
         return data.get(ValueLayout.JAVA_INT_UNALIGNED, packSmall ? 12 : 16);
+    }
+
+    /**
+     * Published {@code time_updated} per item as the logged-in user sees it, which covers private
+     * and friends-only items the anonymous Web API answers with {@code result} 9. One
+     * CreateQueryUGCDetailsRequest round trip per {@value #PUBLISHED_TIMES_BATCH_SIZE} ids.
+     *
+     * <p>Returns empty, never a partial answer, when the query can't be trusted: a missing export,
+     * no manual dispatch, a failed or timed-out call, a non-OK result, or a struct that fails the
+     * layout sanity check. Callers then fall back to the full update for every id.
+     */
+    Optional<Map<Long, Long>> publishedTimes(List<Long> itemIds) throws InterruptedException {
+        if (itemIds.isEmpty()) {
+            return Optional.of(Map.of());
+        }
+        if (pipe == 0
+                || createQueryUGCDetailsRequest == null
+                || sendQueryUGCRequest == null
+                || getQueryUGCResult == null
+                || releaseQueryUGCRequest == null
+                || dispatchGetAPICallResult == null) {
+            return Optional.empty();
+        }
+        Set<Long> requested = new HashSet<>(itemIds);
+        Map<Long, Long> published = new HashMap<>();
+        for (int start = 0; start < itemIds.size(); start += PUBLISHED_TIMES_BATCH_SIZE) {
+            List<Long> batch =
+                    itemIds.subList(
+                            start, Math.min(start + PUBLISHED_TIMES_BATCH_SIZE, itemIds.size()));
+            Optional<Map<Long, Long>> batchResult = queryBatch(batch, requested);
+            if (batchResult.isEmpty()) {
+                return Optional.empty();
+            }
+            published.putAll(batchResult.get());
+        }
+        return Optional.of(published);
+    }
+
+    private Optional<Map<Long, Long>> queryBatch(List<Long> batch, Set<Long> requested)
+            throws InterruptedException {
+        MemorySegment ids = arena.allocate(ValueLayout.JAVA_LONG, batch.size());
+        for (int i = 0; i < batch.size(); i++) {
+            ids.setAtIndex(ValueLayout.JAVA_LONG, i, batch.get(i));
+        }
+        long handle;
+        try {
+            handle = (long) createQueryUGCDetailsRequest.invoke(ugc, ids, batch.size());
+        } catch (Throwable t) {
+            return Optional.empty();
+        }
+        // k_UGCQueryHandleInvalid
+        if (handle == -1L) {
+            return Optional.empty();
+        }
+        try {
+            long callHandle;
+            try {
+                callHandle = (long) sendQueryUGCRequest.invoke(ugc, handle);
+            } catch (Throwable t) {
+                return Optional.empty();
+            }
+            // k_uAPICallInvalid
+            if (callHandle == 0L) {
+                return Optional.empty();
+            }
+            pendingApiCalls.add(callHandle);
+            long deadline = System.currentTimeMillis() + PUBLISHED_TIMES_TIMEOUT_MILLIS;
+            while (!apiCallResults.containsKey(callHandle)) {
+                if (System.currentTimeMillis() > deadline) {
+                    pendingApiCalls.remove(callHandle);
+                    return Optional.empty();
+                }
+                pumpCallbacks();
+                if (apiCallResults.containsKey(callHandle)) {
+                    break;
+                }
+                Thread.sleep(POLL_MILLIS);
+            }
+            ApiCallResult callResult = apiCallResults.remove(callHandle);
+            if (callResult.failed()
+                    || callResult.callbackId() != UGC_QUERY_COMPLETED_CALLBACK
+                    || callResult.data().byteSize() < 16) {
+                return Optional.empty();
+            }
+            MemorySegment queryCompleted = callResult.data();
+            int queryResult = queryCompleted.get(ValueLayout.JAVA_INT_UNALIGNED, 8);
+            if (queryResult != RESULT_OK) {
+                return Optional.empty();
+            }
+            int numResults = queryCompleted.get(ValueLayout.JAVA_INT_UNALIGNED, 12);
+            long nowEpochSeconds = System.currentTimeMillis() / 1000;
+            Map<Long, Long> result = new HashMap<>();
+            MemorySegment details = arena.allocate(DETAILS_STRUCT_SIZE);
+            for (int index = 0; index < numResults; index++) {
+                boolean ok;
+                try {
+                    ok = (boolean) getQueryUGCResult.invoke(ugc, handle, index, details);
+                } catch (Throwable t) {
+                    return Optional.empty();
+                }
+                if (!ok) {
+                    return Optional.empty();
+                }
+                long fileId = detailsPublishedFileId(details);
+                long timeUpdated = detailsTimeUpdated(details, packSmall);
+                DetailsOutcome outcome =
+                        detailsOutcome(
+                                detailsResult(details),
+                                fileId,
+                                timeUpdated,
+                                requested,
+                                nowEpochSeconds);
+                if (outcome == DetailsOutcome.UNSANE) {
+                    return Optional.empty();
+                }
+                if (outcome == DetailsOutcome.TRUSTED) {
+                    result.put(fileId, timeUpdated);
+                }
+            }
+            return Optional.of(result);
+        } finally {
+            try {
+                releaseQueryUGCRequest.invoke(ugc, handle);
+            } catch (Throwable ignored) {
+                // best effort; the request handle only leaks inside Steam's own client process
+            }
+        }
+    }
+
+    /** GetItemInstallInfo's install stamp; empty when the item isn't installed. */
+    OptionalLong installTimestamp(long itemId) {
+        if (getItemInstallInfo == null) {
+            return OptionalLong.empty();
+        }
+        MemorySegment sizeOnDisk = arena.allocate(ValueLayout.JAVA_LONG);
+        MemorySegment folder = arena.allocate(INSTALL_FOLDER_BUFFER_SIZE);
+        MemorySegment timestamp = arena.allocate(ValueLayout.JAVA_INT);
+        boolean known;
+        try {
+            known =
+                    (boolean)
+                            getItemInstallInfo.invoke(
+                                    ugc,
+                                    itemId,
+                                    sizeOnDisk,
+                                    folder,
+                                    INSTALL_FOLDER_BUFFER_SIZE,
+                                    timestamp);
+        } catch (Throwable t) {
+            throw new SteamException("GetItemInstallInfo(" + itemId + ") failed: " + t);
+        }
+        if (!known) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(Integer.toUnsignedLong(timestamp.get(ValueLayout.JAVA_INT, 0)));
+    }
+
+    /**
+     * Skips the DownloadItem confirm when the install stamp equals the published stamp and the item
+     * is join-ready; otherwise falls through to {@link #updateItem}.
+     */
+    boolean checkItem(long itemId, Long publishedTimeUpdated, Consumer<String> progress)
+            throws InterruptedException {
+        if (isCurrentByTimestamp(
+                installTimestamp(itemId), publishedTimeUpdated, itemState(itemId))) {
+            progress.accept("item " + itemId + " up to date");
+            return true;
+        }
+        return updateItem(itemId, progress);
+    }
+
+    static boolean isCurrentByTimestamp(OptionalLong installed, Long published, int state) {
+        return published != null
+                && installed.isPresent()
+                && installed.getAsLong() == published
+                && isJoinReady(state);
+    }
+
+    /** Verdict on one SteamUGCDetails_t returned by a details query. */
+    enum DetailsOutcome {
+        /** Non-OK m_eResult (deleted, banned, private to another owner): leave it out. */
+        SKIP,
+        /** OK and plausible: record its published stamp. */
+        TRUSTED,
+        /** OK but implausible: a struct-layout mismatch, so the whole batch is discarded. */
+        UNSANE
+    }
+
+    static DetailsOutcome detailsOutcome(
+            int result,
+            long publishedFileId,
+            long timeUpdated,
+            Set<Long> requestedIds,
+            long nowEpochSeconds) {
+        if (result != RESULT_OK) {
+            return DetailsOutcome.SKIP;
+        }
+        return isSaneDetails(publishedFileId, timeUpdated, requestedIds, nowEpochSeconds)
+                ? DetailsOutcome.TRUSTED
+                : DetailsOutcome.UNSANE;
+    }
+
+    /**
+     * Layout check for an OK entry: the file id must be one we asked for and m_rtimeUpdated must
+     * fall between 2010 and one day from now.
+     */
+    static boolean isSaneDetails(
+            long publishedFileId, long timeUpdated, Set<Long> requestedIds, long nowEpochSeconds) {
+        return requestedIds.contains(publishedFileId)
+                && timeUpdated >= EARLIEST_SANE_TIME_UPDATED
+                && timeUpdated <= nowEpochSeconds + ONE_DAY_SECONDS;
+    }
+
+    /** SteamUGCDetails_t.m_nPublishedFileId, offset 0 on both pack sizes. */
+    static long detailsPublishedFileId(MemorySegment details) {
+        return details.get(ValueLayout.JAVA_LONG_UNALIGNED, 0);
+    }
+
+    /** SteamUGCDetails_t.m_eResult, offset 8 on both pack sizes. */
+    static int detailsResult(MemorySegment details) {
+        return details.get(ValueLayout.JAVA_INT_UNALIGNED, 8);
+    }
+
+    /**
+     * SteamUGCDetails_t.m_rtimeUpdated. After m_rgchTitle[129] and m_rgchDescription[8000] the
+     * uint64 m_ulSteamIDOwner lands at 8156 (pack 4, linux/macOS) or 8160 (pack 8, Windows), then
+     * m_rtimeCreated, then m_rtimeUpdated at 8168 or 8172.
+     */
+    static long detailsTimeUpdated(MemorySegment details, boolean packSmall) {
+        return Integer.toUnsignedLong(
+                details.get(ValueLayout.JAVA_INT_UNALIGNED, packSmall ? 8168 : 8172));
     }
 
     @Override

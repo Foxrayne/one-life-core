@@ -84,6 +84,14 @@ public final class WorkshopStaleScan {
         }
 
         /**
+         * False when the anonymous Web API can't see the item (hidden or private, {@code result}
+         * 9), which says nothing about whether it is current.
+         */
+        public boolean isPublished(String itemId) {
+            return published.containsKey(itemId);
+        }
+
+        /**
          * Post-update re-check: which of {@code itemIds} STILL diverge from the published
          * timestamps this scan fetched, judged against a fresh acf read. A successful Steam update
          * normally rewrites the install timestamp; an item that stays stale here has the

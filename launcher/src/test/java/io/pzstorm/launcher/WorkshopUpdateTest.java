@@ -100,4 +100,50 @@ class WorkshopUpdateTest {
     private static boolean joinBlocked(WorkshopUpdate.Result result) {
         return JoinFlow.joinBlocker(result) != null;
     }
+
+    @Test
+    void childArgsPrefixesVerifyAndCheckIdsInOrder() {
+        assertEquals(
+                java.util.List.of("1", "2", "verify:3", "verify:4", "check:5", "check:6"),
+                WorkshopUpdate.childArgs(
+                        java.util.List.of("1", "2"),
+                        java.util.List.of("3", "4"),
+                        java.util.List.of("5", "6")));
+    }
+
+    @Test
+    void childArgsWithNoVerifyOrCheckIdsIsJustTheUpdateIds() {
+        assertEquals(
+                java.util.List.of("1", "2"),
+                WorkshopUpdate.childArgs(
+                        java.util.List.of("1", "2"), java.util.List.of(), java.util.List.of()));
+    }
+
+    @Test
+    void startMessageWithNothingExtraMatchesTheOriginalText() {
+        assertEquals(
+                "Updating 3 workshop item(s) via Steam …", WorkshopUpdate.startMessage(3, 0, 0));
+    }
+
+    @Test
+    void startMessageAppendsQuickStateCheckSuffix() {
+        assertEquals(
+                "Updating 3 workshop item(s) via Steam (+2 quick state check(s)) …",
+                WorkshopUpdate.startMessage(3, 2, 0));
+    }
+
+    @Test
+    void startMessageAppendsPublishedVersionCheckSuffix() {
+        assertEquals(
+                "Updating 3 workshop item(s) via Steam (+5 published-version check(s)) …",
+                WorkshopUpdate.startMessage(3, 0, 5));
+    }
+
+    @Test
+    void startMessageAppendsBothSuffixesInOrder() {
+        assertEquals(
+                "Updating 3 workshop item(s) via Steam (+2 quick state check(s)) (+5"
+                        + " published-version check(s)) …",
+                WorkshopUpdate.startMessage(3, 2, 5));
+    }
 }

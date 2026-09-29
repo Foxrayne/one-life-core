@@ -55,4 +55,13 @@ class SteamUgcTest {
         assertEquals(fileId, SteamUgc.downloadResultItemId(wide, false));
         assertEquals(2, SteamUgc.downloadResultCode(wide, false));
     }
+
+    @Test
+    void checkPrefixArgvParsingMirrorsExistingPrefixes() {
+        assertTrue("check:123".startsWith(SteamUpdateChild.CHECK_PREFIX));
+        assertEquals("123", "check:123".substring(SteamUpdateChild.CHECK_PREFIX.length()));
+        assertFalse("123".startsWith(SteamUpdateChild.CHECK_PREFIX));
+        assertFalse("verify:123".startsWith(SteamUpdateChild.CHECK_PREFIX));
+        assertFalse("repair:123".startsWith(SteamUpdateChild.CHECK_PREFIX));
+    }
 }
