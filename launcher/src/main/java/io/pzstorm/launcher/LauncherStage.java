@@ -175,7 +175,7 @@ public final class LauncherStage {
         }
         if (!ctx.cdnUpdated) {
             try {
-                WorkshopUpdate.run(config, List.of(itemId));
+                WorkshopUpdate.run(config, List.of(), List.of(), List.of(itemId));
             } catch (IOException e) {
                 Log.warn(
                         "Storm self-update failed: "

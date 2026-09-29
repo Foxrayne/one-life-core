@@ -229,7 +229,8 @@ own front door until the item stops changing:
 ```
 [item jar]    copy self to <home>/Zomboid/storm/launcher/stage/<hash>/,
               exec the copy, exit            (holds the item; no Steam calls)
-[staged jar]  wait for the parent to die  →  DownloadItem on the own item
+[staged jar]  wait for the parent to die  →  published-version check on the
+                                             own item, DownloadItem if stale
                                              (zero open handles in the item)
               item's launcher jar == own jar →  settled: run normally
               differs                        →  exec the item jar again, exit
