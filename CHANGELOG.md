@@ -1,3 +1,12 @@
+## 2.11.7-rc1 - population saving and container protection (staging)
+
+- Follow upstream 42.21 population persistence: remove requestSaveCell suppression and retain the vanilla queued native save path. World Essentials population settings and adapter are unchanged.
+- Integrate upstream 3659e9f container lookup/insertion protection on server and client.
+- Refuse cyclic or malformed inventories without silently detaching bags. Preserve correct roots for deep valid chains; bound corrupt-chain and serialization work.
+- Validate Core transfers at acceptance and execution. Confirm insertion before equipment changes, floor-object removal, and success messages; restore original ownership after refusal or partial insertion failure.
+- Retain published rc2 fixes and One/Life customizations. No furniture/painting, API migration, extra packet events, physics backend, launcher, or visual changes.
+- Local candidate only. Linux multiplayer persistence and inventory acceptance are pending; not published.
+
 ## 2.11.6-rc2 - stability-only staging candidate
 
 - Respect join grace before send-buffer kicks and improve kick diagnostics.

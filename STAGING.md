@@ -1,70 +1,25 @@
-# One Life Core 2.11.6-rc2: staging instructions
+# One Life Core 42.21_2.11.7-rc1 staging
 
-This is the stability-only replacement for rc1. Use rc2 for the staging session.
-The unfinished client visual renderer, shader resources, options Lua, and lifecycle
-hooks are absent, not merely disabled. Existing published rendering fixes remain.
+This manual candidate contains only population-saving and container-protection changes over published rc2. The source branch is feature/population-container-safety. It is not installed or published.
 
-## What is included
+## Install on isolated staging only
 
-- Join-grace protection and clearer send-buffer kick diagnostics.
-- TCP chunk delivery bookkeeping/locking and 42.21 join-prewarm correction.
-- Client hutch null-slot crash guard, with corrected logging.
-- ServerLOS resume after warm-cell eviction/drain exceptions.
-- Required local 42.21 compatibility work: player profiles, reviewed CRC/action
-  fixes, animal growth, packet registration, population ABI checks, and brush replay.
-- Existing One/Life identity, privacy behavior, and launcher/bootstrap defaults.
+1. Stop the test server and clients; back up their Core folders and clone the save/configuration.
+2. Verify the extracted package with `py verify-package.py` (Windows) or `python3 verify-package.py` (Linux).
+3. Replace the complete staging Core folder with `One Life Core/Contents/mods/storm`. Keep the existing bootstrap/launcher setup and mod ID one-life-core-b42. Do not leave the rc2 Core JAR alongside the candidate. Prevent Workshop synchronization from overwriting the manual test copy.
+4. Use the reviewed 42.21 game and Linux population library (hashes in VALIDATION.json), with World Essentials enabled. Both server and test clients must load 42.21_2.11.7-rc1; check the logs for the new container transformers. No game JAR replacement is supplied.
 
-This is a manual staging package. Its mod ID remains `one-life-core-b42` so dependent
-mods resolve normally. It is not a separate Workshop staging listing; no listing
-has been created and nothing has been published. Do not load this alongside another
-copy of Core. The test server and test clients must use the same candidate.
+## Acceptance
 
-## Prepare the staging session
+- Startup: no transformer failures, missing methods or verification errors; joining/reconnecting works.
+- Inventories: ordinary nested bags, outward transfers, floor pickup, equipped-item transfers, full/restricted destinations and queued actions. Rejection must preserve items and not report success.
+- Persistence: compare identical cloned saves against rc2, with fixed population settings. Travel away/return repeatedly, autosave, then restart. Record counts, errors and save latency; distinguish natural spawn/migration from persistence effects.
+- Two clients: verify item ownership/counts, equipment, inventory weight, source/destination updates and reconnect persistence. Exercise corpse recovery, economy sales, quest deliveries and event crates.
+- Existing corrupt inventory: getters do not silently detach items. Transfers/saves of invalid or over-budget trees are refused with a rate-limited diagnostic. This is containment, not automatic recovery; retain the original save for explicit repair. Do not create corruption in production.
+- Control regression: ranged combat and normal player lifecycle continue to work. Painting/furniture issues are outside this candidate.
 
-1. Use an isolated 42.21 staging server and test clients with the normal mod set.
-   Clone the relevant save/configuration if reproducing production behavior.
-   Stop those processes and back up their current Core folder and staging save.
-2. Extract the archive and run `python verify-package.py` (or `py verify-package.py`
-   on Windows) from its top-level folder. It verifies every payload file and the
-   absence of the unfinished visual code in the packaged Core JAR and loose media.
-3. In the staging environment only, replace the complete existing Core mod folder
-   with `One Life Core/Contents/mods/storm` from the archive. Keep the expected path
-   used by that environment's existing bootstrap/launcher setup. Replace the folder;
-   do not merge `42/lib` and leave the old versioned Core JAR beside the candidate.
-4. Keep the existing server startup and bootstrap configuration. Do not replace the
-   game JAR. The package contains `storm-42.21_2.11.6-rc2.jar` and matching loose media.
-   Check that Steam/Workshop synchronization does not replace the manual candidate
-   before launch. Confirm the loaded Core version on server and clients is
-   `42.21_2.11.6-rc2`, and that no second Core JAR is being loaded.
+## Limits and rollback
 
-## Acceptance checks
+Live Linux acceptance is pending. Local tests do not establish a cure for earlier server stalls or mass disconnects. There is no new recurring inventory scan. Parent lookup cap: 1024; descendant preflight cap: 65536 items and 128 nesting edges. Budget exhaustion refuses work, not items.
 
-Record the server/client logs and timestamps for each check.
-
-| Check | Expected result |
-| --- | --- |
-| Startup with the normal mod set | Server becomes available; no new transformer failures, VerifyError, missing-method errors, or visual renderer initialization. |
-| Existing and fresh characters join; disconnect and rejoin | Profiles and character selection work; no premature send-buffer kick during vanilla join grace. |
-| Move through newly streamed areas | Chunks arrive; no persistent loading holes or stuck joining. |
-| Controlled TCP failure on staging | Existing UDP fallback completes outstanding chunk requests; do not disrupt production networking. |
-| Approach/leave a hutch and release animals | No null-animal crash; valid animals remain. A normal hutch produces no null-slot warning. |
-| Warm-cell eviction under normal travel | Server continues ticking and LOS resumes after unload. Capture logs/thread dumps if an unload throws; do not deliberately corrupt a live save. |
-| Existing gameplay | Player actions, saving/reloading, brush placement, and custom mods still behave normally. |
-
-Local regression tests exercise the pause exception path with controlled callbacks;
-they do not prove that a live, partially unloaded cell is repaired. One expensive
-unload can still stall the main thread. The earlier mass-disconnect root cause is
-not established, and this package is not claimed to fix it conclusively.
-
-## Rollback
-
-Stop the staging server and clients, restore the complete backed-up Core folders,
-and restore the staging save snapshot if the session changed it. Confirm only the
-restored Core JAR remains before restarting. Production files are not part of this
-procedure.
-
-## Validation evidence
-
-See `VALIDATION.json` for the test counts and game/artifact hashes, and
-`SHA256-MANIFEST.json` for the payload checksums. Linux multiplayer acceptance is
-pending; automated results are not a substitute for the checks above.
+Stop staging processes, restore the complete rc2 Core folders and pre-test save snapshot, then restart. The original rc2 archive in the sibling One Life Core Staging/build folder is retained. Do not reuse a candidate-mutated test save as the production rollback snapshot.
