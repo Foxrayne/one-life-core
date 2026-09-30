@@ -77,7 +77,6 @@ import io.pzstorm.storm.patch.fixes.NetTimedActionParsePatch;
 import io.pzstorm.storm.patch.fixes.PopManSaveAdoptFixPatch;
 import io.pzstorm.storm.patch.fixes.RefreshAnimSetsLockPatch;
 import io.pzstorm.storm.patch.fixes.RequestDataManagerFixPatch;
-import io.pzstorm.storm.patch.fixes.RequestSaveCellSuppressPatch;
 import io.pzstorm.storm.patch.fixes.SaveChunkThreadCrcRacePatch;
 import io.pzstorm.storm.patch.fixes.SaveLoadedTaskCrcRacePatch;
 import io.pzstorm.storm.patch.fixes.ServerCellRecalcCrashGuardPatch;
@@ -624,7 +623,6 @@ public class StormClassTransformers {
             registerTransformer(new ServerTickPatch());
             registerTransformer(new MainLoopDrainCapPatch());
             registerTransformer(new IsoObjectIDAllocateFixPatch());
-            registerTransformer(new RequestSaveCellSuppressPatch());
             registerTransformer(new ReceiveSandboxOptionsPatch());
             registerTransformer(new IsoZombieUpdateFixPatch());
             registerTransformer(new IsoAnimalRegistryFixPatch());
