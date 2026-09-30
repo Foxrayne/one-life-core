@@ -7,6 +7,7 @@ import io.pzstorm.storm.event.core.StormEventDispatcher;
 import io.pzstorm.storm.event.zomboid.OnContainerLootedEvent;
 import io.pzstorm.storm.event.zomboid.OnItemTransferCompletedEvent;
 import io.pzstorm.storm.metrics.TransferMetrics;
+import io.pzstorm.storm.patch.fixes.ContainerChainGuard;
 import io.pzstorm.storm.transfer.commands.CancelTransferCommand;
 import io.pzstorm.storm.transfer.commands.PlaceItemCommand;
 import io.pzstorm.storm.transfer.commands.TransferItemCommand;
@@ -277,7 +278,11 @@ public class StormTransferHandler {
 
         if (dest instanceof ContainerLeg destLeg) {
             ItemContainer destContainer = destLeg.container();
-            if (!destContainer.isItemAllowed(item)) {
+            if (!ContainerInsertion.canInsert(
+                            src instanceof ContainerLeg source ? source.container() : null,
+                            destContainer,
+                            item)
+                    || !destContainer.isItemAllowed(item)) {
                 reject(player, uuid);
                 return;
             }
@@ -436,7 +441,8 @@ public class StormTransferHandler {
             ItemContainer src,
             InventoryItem item,
             ItemContainer dest) {
-        if (!dest.isItemAllowed(item)
+        if (!ContainerInsertion.canInsert(src, dest, item)
+                || !dest.isItemAllowed(item)
                 || !hasRoomForWeight(dest, p.player, item.getUnequippedWeight())) {
             LOGGER.debug("processPending: dest can't accept item, rejecting uuid={}", uuid);
             reject(p.player, uuid);
@@ -449,6 +455,10 @@ public class StormTransferHandler {
             return;
         }
 
+        if (!ContainerInsertion.insert(src, dest, item)) {
+            reject(p.player, uuid);
+            return;
+        }
         unequipIfCarried(p.player, src, item);
 
         // Mark source container as explored/looted (matches vanilla Transaction.update())
@@ -457,10 +467,6 @@ public class StormTransferHandler {
         StormEventDispatcher.dispatchEvent(new OnContainerLootedEvent(p.player, src, item));
 
         updateItemState(p.player, item);
-
-        // Execute the transfer
-        src.Remove(item);
-        dest.addItem(item);
 
         // Broadcast to relevant clients (same as Transaction.update())
         GameServer.sendRemoveItemFromContainer(src, item);
@@ -500,7 +506,8 @@ public class StormTransferHandler {
         InventoryItem item = worldObj.getItem();
         ItemContainer dest = ((ContainerLeg) p.dest).container();
 
-        if (!dest.isItemAllowed(item)
+        if (!ContainerInsertion.canInsert(null, dest, item)
+                || !dest.isItemAllowed(item)
                 || !hasRoomForWeight(dest, p.player, item.getUnequippedWeight())) {
             LOGGER.debug("processPending: dest can't accept floor item, rejecting uuid={}", uuid);
             reject(p.player, uuid);
@@ -513,13 +520,22 @@ public class StormTransferHandler {
             return;
         }
 
+        // The floor object stays intact unless the exact item is accepted into the inventory.
+        if (!ContainerInsertion.insert(null, dest, item)) {
+            reject(p.player, uuid);
+            return;
+        }
         if (item instanceof Clothing clothing) {
             clothing.flushWetness();
         }
 
         GameServer.RemoveItemFromMap(worldObj);
         item.setWorldItem(null);
-        dest.addItem(item);
+        // World removal queues this item for processing removal. Since insertion now happens
+        // first, restore the registration that vanilla AddItem used to establish afterwards.
+        if (IsoWorld.instance.currentCell != null) {
+            IsoWorld.instance.currentCell.addToProcessItems(item);
+        }
         GameServer.sendAddItemToContainer(dest, item);
         refreshContainerOverlay(dest);
 
@@ -626,6 +642,7 @@ public class StormTransferHandler {
      */
     private static boolean executePlacement(PendingPlacement placement) {
         IsoPlayer player = placement.player;
+        if (!ContainerChainGuard.validTree(player.getInventory(), null)) return true;
         InventoryItem item = player.getInventory().getItemWithIDRecursiv(placement.itemId);
         if (item == null) {
             return false;
@@ -1074,6 +1091,7 @@ public class StormTransferHandler {
     private static ItemContainer resolveBag(String ref, IsoPlayer player) {
         try {
             int itemId = Integer.parseInt(ref.substring("bag:".length()));
+            if (!ContainerChainGuard.validTree(player.getInventory(), null)) return null;
             InventoryItem item = player.getInventory().getItemWithIDRecursiv(itemId);
             if (item instanceof InventoryContainer bag) {
                 return bag.getItemContainer();

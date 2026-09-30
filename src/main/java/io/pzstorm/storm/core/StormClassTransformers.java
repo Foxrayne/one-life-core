@@ -60,6 +60,7 @@ import io.pzstorm.storm.patch.fixes.DebugLogStreamFormatPatch;
 import io.pzstorm.storm.patch.fixes.GameServerStartPMChatPatch;
 import io.pzstorm.storm.patch.fixes.GeneralActionPacketPatch;
 import io.pzstorm.storm.patch.fixes.HutchDirtRateFixPatch;
+import io.pzstorm.storm.patch.fixes.InventoryItemGetOutermostContainerPatch;
 import io.pzstorm.storm.patch.fixes.InventoryItemStoreByteDataPatch;
 import io.pzstorm.storm.patch.fixes.IsoAnimalCanClimbStairsNullDefGuardPatch;
 import io.pzstorm.storm.patch.fixes.IsoAnimalReattachBackToMomPatch;
@@ -71,6 +72,7 @@ import io.pzstorm.storm.patch.fixes.IsoMovingObjectIsPushedByForSeparateNullDefG
 import io.pzstorm.storm.patch.fixes.IsoObjectIDAllocateFixPatch;
 import io.pzstorm.storm.patch.fixes.IsoObjectTransmitUpdatedSpriteGuardPatch;
 import io.pzstorm.storm.patch.fixes.IsoZombieUpdateFixPatch;
+import io.pzstorm.storm.patch.fixes.ItemContainerChainGuardPatch;
 import io.pzstorm.storm.patch.fixes.ItemTransactionPacketPatch;
 import io.pzstorm.storm.patch.fixes.NetTimedActionPacketPatch;
 import io.pzstorm.storm.patch.fixes.NetTimedActionParsePatch;
@@ -403,6 +405,8 @@ public class StormClassTransformers {
         registerTransformer(new ActionManagerPatch());
         registerTransformer(new GeneralActionPacketPatch());
         registerTransformer(new ActionStateContainerPatch());
+        registerTransformer(new ItemContainerChainGuardPatch());
+        registerTransformer(new InventoryItemGetOutermostContainerPatch());
         registerTransformer(new ItemTransactionPacketPatch());
         registerTransformer(new TransactionManagerPatch());
         registerTransformer(new CompressIdenticalItemsPatch());
