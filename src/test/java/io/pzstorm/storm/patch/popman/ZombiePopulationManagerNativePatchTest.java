@@ -19,12 +19,20 @@ class ZombiePopulationManagerNativePatchTest implements UnitTest {
 
     @Test
     void patchListMatchesTheGameClass() throws Exception {
+        if (persistentIdGame()) {
+            assertUnsupportedContract();
+            return;
+        }
         NativeFacadeWeave.assertCoversDeclaredNatives(
                 TARGET, ZombiePopulationManagerNativePatch.NATIVES);
     }
 
     @Test
     void everyNativeForwardsToTheJavaFacade() throws Exception {
+        if (persistentIdGame()) {
+            assertUnsupportedContract();
+            return;
+        }
         NativeFacadeWeave.assertEveryNativeForwards(
                 new ZombiePopulationManagerNativePatch(), TARGET, FACADE);
     }
@@ -34,6 +42,12 @@ class ZombiePopulationManagerNativePatchTest implements UnitTest {
     void initNoLongerLoadsTheLibrary() throws Exception {
         byte[] original = NativeFacadeWeave.readClassBytes(TARGET);
         assertTrue(loadLibraryCallers(original).contains("init"), "vanilla loads it in init()");
+        if (persistentIdGame()) {
+            // No output bytes may be produced with the DLL removed and live JNI left behind.
+            org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                    () -> new ZombiePopulationManagerNativePatch().transform(original));
+            return;
+        }
         byte[] transformed = new ZombiePopulationManagerNativePatch().transform(original);
         assertFalse(
                 loadLibraryCallers(transformed).contains("init"),
@@ -69,5 +83,18 @@ class ZombiePopulationManagerNativePatchTest implements UnitTest {
                         },
                         0);
         return callers;
+    }
+
+    private static boolean persistentIdGame() {
+        return !net.bytebuddy.pool.TypePool.Default.ofSystemLoader()
+                .describe("zombie.popman.ZombiePopulationManager").resolve().getDeclaredMethods()
+                .filter(net.bytebuddy.matcher.ElementMatchers.named("n_registerZombie")).isEmpty();
+    }
+
+    private static void assertUnsupportedContract() {
+        var error = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> new ZombiePopulationManagerNativePatch().validateContract(
+                        net.bytebuddy.pool.TypePool.Default.ofSystemLoader()));
+        assertTrue(error.getMessage().contains("storm.popman.java"));
     }
 }

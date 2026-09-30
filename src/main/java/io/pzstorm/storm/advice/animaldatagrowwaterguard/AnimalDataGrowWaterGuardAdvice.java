@@ -33,7 +33,25 @@ public class AnimalDataGrowWaterGuardAdvice {
             return false;
         }
         boolean onWater = parent.checkForWater();
-        boolean duplicate = !onWater && parent.checkForChickenpocalypse();
+        // The engine's checkForChickenpocalypse(replacingAnimal) deletes its
+        // receiver on a duplicate. A preflight must not delete the parent.
+        boolean duplicate = false;
+        zombie.iso.IsoGridSquare origin = parent.getSquare();
+        if (!onWater && origin != null) {
+            for (int x = origin.getX() - 4; x < origin.getX() + 4 && !duplicate; x++) {
+                for (int y = origin.getY() - 4; y < origin.getY() + 4 && !duplicate; y++) {
+                    zombie.iso.IsoGridSquare square =
+                            origin.getCell().getGridSquare(x, y, origin.getZ());
+                    if (square == null) continue;
+                    for (IsoAnimal other : square.getAnimals()) {
+                        if (other != parent && other.getAnimalID() == parent.getAnimalID()) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         if (!onWater && !duplicate) {
             return false;
         }

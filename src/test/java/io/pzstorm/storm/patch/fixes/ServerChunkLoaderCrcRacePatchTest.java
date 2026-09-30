@@ -42,7 +42,12 @@ class ServerChunkLoaderCrcRacePatchTest implements UnitTest {
         byte[] rawClass = readClass(SAVE_CHUNK_THREAD);
 
         Counts raw = count(rawClass, SAVE_CHUNK_THREAD, "crc32", "addLoadedJob");
-        assertTrue(
+        if (raw.targetMethodFieldReads == 0) {
+            assertEquals("0e5fc386370d3b949a6c5941be8a9b0de516924041dbfbaadfff09aa1e3ac7c9",
+                    java.util.HexFormat.of().formatHex(
+                            java.security.MessageDigest.getInstance("SHA-256").digest(rawClass)));
+            assertEquals(1, raw.targetLocalCrcConstructors);
+        } else assertTrue(
                 raw.targetMethodFieldReads > 0,
                 "vanilla addLoadedJob should read SaveChunkThread.crc32 directly; got "
                         + raw.targetMethodFieldReads
@@ -79,11 +84,13 @@ class ServerChunkLoaderCrcRacePatchTest implements UnitTest {
         if (raw.targetMethodFieldReads == 0) {
             // Audited Linux 42.20.4 variant already allocates CRC32 locally inside save().
             // Accept only these exact bytes, not every unknown no-match implementation.
-            assertEquals(
+            assertTrue(java.util.Set.of(
                     "f500b25e82c9f33d3e90b0ccf44af3aaf6a7d463d9f94a24d1da78a9d3f2f710",
+                    "ab3f71c4afc8d7589c3c70a20bd74d6c990ba21db2317f99b123ded0d5b332ac").contains(
                     java.util.HexFormat.of().formatHex(
-                            java.security.MessageDigest.getInstance("SHA-256").digest(rawClass)),
+                            java.security.MessageDigest.getInstance("SHA-256").digest(rawClass))),
                     "Unrecognized save() variant without shared CRC reads");
+            assertEquals(1, raw.targetLocalCrcConstructors);
         }
 
         byte[] transformed = new SaveLoadedTaskCrcRacePatch().transform(rawClass);
@@ -150,6 +157,11 @@ class ServerChunkLoaderCrcRacePatchTest implements UnitTest {
                                             String mName,
                                             String mDesc,
                                             boolean isInterface) {
+                                        if (isTarget && opcode == Opcodes.INVOKESPECIAL
+                                                && "java/util/zip/CRC32".equals(owner)
+                                                && "<init>".equals(mName)) {
+                                            counts.targetLocalCrcConstructors++;
+                                        }
                                         if (opcode == Opcodes.INVOKESTATIC
                                                 && SCRATCH_INTERNAL.equals(owner)
                                                 && "crc".equals(mName)
@@ -166,6 +178,7 @@ class ServerChunkLoaderCrcRacePatchTest implements UnitTest {
     }
 
     private static class Counts {
+        int targetLocalCrcConstructors;
         int targetMethodFieldReads;
         int otherMethodFieldReads;
         int targetMethodScratchCalls;

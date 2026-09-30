@@ -30,9 +30,35 @@ public abstract class NativeFacadePatch extends StormClassTransformer {
         return natives.clone();
     }
 
+    /** Validate the complete ABI before replacing even one JNI entry point. */
+    public void validateContract(TypePool typePool) {
+        java.util.Set<String> expectedNames = new java.util.HashSet<>(java.util.Arrays.asList(natives));
+        java.util.Set<String> actualNames = new java.util.HashSet<>();
+        var facadeType = typePool.describe(facade.getName()).resolve();
+        for (var method : typePool.describe(className).resolve().getDeclaredMethods()) {
+            if (!method.isNative()) continue;
+            actualNames.add(method.getName());
+            boolean match = facadeType.getDeclaredMethods().stream().anyMatch(candidate ->
+                    candidate.isStatic() && candidate.getName().equals(method.getName())
+                            && (candidate.getDescriptor().equals(method.getDescriptor())
+                                || (!method.isStatic() && !candidate.getParameters().isEmpty()
+                                    && candidate.getParameters().get(0).getDeclaredAnnotations()
+                                        .isAnnotationPresent(net.bytebuddy.implementation.bind.annotation.This.class)
+                                    && candidate.getDescriptor().equals("(Ljava/lang/Object;"
+                                        + method.getDescriptor().substring(1)))));
+            if (!match) throw new IllegalStateException("storm.popman.java is incompatible with "
+                    + className + ": unsupported JNI " + method.getName() + method.getDescriptor()
+                    + ". Disable storm.popman.java; do not partially replace the population library.");
+        }
+        if (!actualNames.equals(expectedNames)) throw new IllegalStateException(
+                "storm.popman.java JNI name set changed for " + className
+                        + "; disable storm.popman.java until the Java population port is updated.");
+    }
+
     @Override
     public DynamicType.Builder<Object> dynamicType(
             ClassFileLocator locator, TypePool typePool, DynamicType.Builder<Object> builder) {
+        validateContract(typePool);
         for (String name : natives) {
             builder =
                     builder.method(ElementMatchers.named(name).and(ElementMatchers.isNative()))

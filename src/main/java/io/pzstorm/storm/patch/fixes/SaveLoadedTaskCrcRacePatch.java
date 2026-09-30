@@ -46,6 +46,11 @@ public class SaveLoadedTaskCrcRacePatch extends StormClassTransformer {
     @Override
     public DynamicType.Builder<Object> dynamicType(
             ClassFileLocator locator, TypePool typePool, DynamicType.Builder<Object> builder) {
+        // 42.21 allocates a new method-local CRC32 for each save invocation.
+        if (ReviewedVanillaFix.matches(locator, className,
+                "ab3f71c4afc8d7589c3c70a20bd74d6c990ba21db2317f99b123ded0d5b332ac")) {
+            return builder;
+        }
         TypeDescription target = typePool.describe(className).resolve();
         TypeDescription outer = typePool.describe(OUTER).resolve();
         requireDeclared(

@@ -1,3 +1,13 @@
+## 2.11.6-rc2 - stability-only staging candidate
+
+- Respect join grace before send-buffer kicks and improve kick diagnostics.
+- Correct TCP chunk reply bookkeeping and locking, and 42.21 join prewarming.
+- Guard client hutch unload/release against null animal entries without healthy-hutch log spam.
+- Resume ServerLOS after exceptions during warm-cell eviction or final draining.
+- Retain local 42.21 profile, CRC, action, animal-growth, packet and population ABI compatibility fixes.
+- Exclude the unfinished visual renderer, shaders, options and lifecycle hooks.
+- Local manual-staging candidate only; live multiplayer acceptance remains pending.
+
 # One/Life Core changelog
 
 ## 42.20.4_2.11.3 — 2026-09-23

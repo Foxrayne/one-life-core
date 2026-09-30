@@ -265,7 +265,9 @@ tasks.register('clientPatchTest', Test) {
 	systemProperty 'storm.testing', 'true'
 	// register the -Dstorm.experimental.clientperf patches so they get weave-validated too
 	systemProperty 'storm.experimental.clientperf', 'true'
-	systemProperty 'storm.popman.java', 'true'
+	// 42.21 deliberately rejects the unported experimental JNI replacement.
+	// NativeFacade contract tests cover that rejection; test the supported client here.
+	systemProperty 'storm.popman.java', 'false'
 	jvmArgs '--enable-native-access=ALL-UNNAMED'
 	testClassesDirs = sourceSets.test.output.classesDirs
 	classpath = sourceSets.test.runtimeClasspath

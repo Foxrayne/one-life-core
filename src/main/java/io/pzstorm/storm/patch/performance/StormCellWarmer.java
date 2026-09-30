@@ -318,87 +318,85 @@ public final class StormCellWarmer {
     public static void runPostUpdate(ServerMap serverMap) {
         bindServerCellInternals();
         boolean draining = !StormCellWarmingConfig.isEnabled();
-        boolean pathfindPaused = false;
         long cancelledQueued = 0;
         long cancelledInFlight = 0;
         ArrayList<ServerMap.ServerCell> loadedCells = serverMap.loadedCells;
         ArrayList<ServerMap.ServerCell> releventNow = serverMap.releventNow;
-        try {
-            projectDriverLookahead(serverMap);
-            RELEVENT_SET.clear();
-            RELEVENT_SET.addAll(releventNow);
-            INFLUENCE_GRID.rebuild(
-                    GameServer.udpEngine == null
-                            ? Collections.emptyList()
-                            : GameServer.udpEngine.connections);
-            for (int n = 0; n < loadedCells.size(); n++) {
-                ServerMap.ServerCell cell = loadedCells.get(n);
-                boolean shouldBeLoaded =
-                        RELEVENT_SET.contains(cell)
-                                || INFLUENCE_GRID.containsCell(cell.wx, cell.wy);
-                boolean warm = isWarm(cell);
+        try (ServerLosPause pathfindPause =
+                new ServerLosPause(
+                        () -> ServerLOS.instance.suspend(), () -> ServerLOS.instance.resume())) {
+            try {
+                projectDriverLookahead(serverMap);
+                RELEVENT_SET.clear();
+                RELEVENT_SET.addAll(releventNow);
+                INFLUENCE_GRID.rebuild(
+                        GameServer.udpEngine == null
+                                ? Collections.emptyList()
+                                : GameServer.udpEngine.connections);
+                for (int n = 0; n < loadedCells.size(); n++) {
+                    ServerMap.ServerCell cell = loadedCells.get(n);
+                    boolean shouldBeLoaded =
+                            RELEVENT_SET.contains(cell)
+                                    || INFLUENCE_GRID.containsCell(cell.wx, cell.wy);
+                    boolean warm = isWarm(cell);
 
-                if (warm) {
-                    if (shouldBeLoaded) {
-                        // Only update on successful rewarm — a failed rewarm leaves the cell in
-                        // the warm map with chunks possibly half-attached, and update() on that
-                        // state would tick disconnected chunks.
-                        if (rewarm(cell)) {
-                            cell.update();
+                    if (warm) {
+                        if (shouldBeLoaded) {
+                            // Only update on successful rewarm — a failed rewarm leaves the cell in
+                            // the warm map with chunks possibly half-attached, and update() on that
+                            // state would tick disconnected chunks.
+                            if (rewarm(cell)) {
+                                cell.update();
+                            }
                         }
-                    }
-                    // else: stay warm — skip both Unload and update.
-                    continue;
-                }
-
-                if (!cell.isLoaded) {
-                    if (!shouldBeLoaded && !cell.cancelLoading) {
-                        if (!startedLoading(cell)) {
-                            cell.loadingWasCancelled = true;
-                            cancelledQueued++;
-                        } else {
-                            cancelledInFlight++;
-                        }
-                        cell.cancelLoading = true;
-                    }
-                } else if (!shouldBeLoaded) {
-                    if (!draining && warm(cell)) {
-                        // Warmed in-place: stays in cellMap/loadedCells with isLoaded=true.
+                        // else: stay warm — skip both Unload and update.
                         continue;
                     }
-                    // Warm refused (eligibility / soft-reset / throw) — vanilla destructive unload.
-                    if (!pathfindPaused) {
-                        ServerLOS.instance.suspend();
-                        pathfindPaused = true;
+
+                    if (!cell.isLoaded) {
+                        if (!shouldBeLoaded && !cell.cancelLoading) {
+                            if (!startedLoading(cell)) {
+                                cell.loadingWasCancelled = true;
+                                cancelledQueued++;
+                            } else {
+                                cancelledInFlight++;
+                            }
+                            cell.cancelLoading = true;
+                        }
+                    } else if (!shouldBeLoaded) {
+                        if (!draining && warm(cell)) {
+                            // Warmed in-place: stays in cellMap/loadedCells with isLoaded=true.
+                            continue;
+                        }
+                        // Warm refused (eligibility / soft-reset / throw) — vanilla destructive
+                        // unload.
+                        pathfindPause.acquire();
+                        int x = cell.wx - serverMap.getMinX();
+                        int y = cell.wy - serverMap.getMinY();
+                        int width = serverMap.getMaxX() - serverMap.getMinX() + 1;
+                        serverMap.cellMap[y * width + x].Unload();
+                        serverMap.cellMap[y * width + x] = null;
+                        loadedCells.remove(cell);
+                        n--;
+                    } else {
+                        cell.update();
                     }
-                    int x = cell.wx - serverMap.getMinX();
-                    int y = cell.wy - serverMap.getMinY();
-                    int width = serverMap.getMaxX() - serverMap.getMinX() + 1;
-                    serverMap.cellMap[y * width + x].Unload();
-                    serverMap.cellMap[y * width + x] = null;
-                    loadedCells.remove(cell);
-                    n--;
-                } else {
-                    cell.update();
                 }
+                drainWarmedThisTick();
+                evictOverBudget(serverMap, pathfindPause);
+                if (draining && WARM_CELLS.isEmpty()) {
+                    StormLogger.LOGGER.info(
+                            "Cell warming drain complete — ServerMap.postupdate returns to vanilla");
+                }
+                // Inside the guard: this is Storm instrumentation, and a metric class whose own
+                // <clinit> fails would otherwise throw an Error straight into the tick.
+                ChunkHydrationMetrics.recordCancelledCells(cancelledQueued, cancelledInFlight);
+            } finally {
+                // Resource cleanup still resumes LOS if draining itself throws.
+                drainWarmedThisTick();
             }
-            drainWarmedThisTick();
-            pathfindPaused = evictOverBudget(serverMap, pathfindPaused);
-            if (draining && WARM_CELLS.isEmpty()) {
-                StormLogger.LOGGER.info(
-                        "Cell warming drain complete — ServerMap.postupdate returns to vanilla");
-            }
-            // Inside the guard: this is Storm instrumentation, and a metric class whose own
-            // <clinit> fails would otherwise throw an Error straight into the tick.
-            ChunkHydrationMetrics.recordCancelledCells(cancelledQueued, cancelledInFlight);
         } catch (Throwable t) {
             StormLogger.LOGGER.error("StormCellWarmer.runPostUpdate failed", t);
-        } finally {
-            // A no-op unless the loop threw after warming a cell; see drainWarmedThisTick.
-            drainWarmedThisTick();
-            if (pathfindPaused) {
-                ServerLOS.instance.resume();
-            }
         }
 
         NetworkZombiePacker.getInstance().postupdate();
@@ -748,14 +746,14 @@ public final class StormCellWarmer {
      * failed to rewarm (relevant cells that rewarmed were removed by the caller's loop), so
      * evicting any of them is always safe.
      *
-     * @return updated pathfindPaused flag — caller's finally block resumes ServerLOS.
+     * <p>The caller owns the pause even when eviction throws before returning.
      */
-    private static boolean evictOverBudget(ServerMap serverMap, boolean pathfindPaused) {
+    private static void evictOverBudget(ServerMap serverMap, ServerLosPause pathfindPause) {
         int max =
                 effectiveEvictionCap(
                         StormCellWarmingConfig.isEnabled(), StormCellWarmingConfig.maxWarmCells());
         if (max < 0) {
-            return pathfindPaused;
+            return;
         }
         boolean evicted = false;
         int evictions = 0;
@@ -792,10 +790,7 @@ public final class StormCellWarmer {
                         cell.wy,
                         t);
             }
-            if (!pathfindPaused) {
-                ServerLOS.instance.suspend();
-                pathfindPaused = true;
-            }
+            pathfindPause.acquire();
             int x = cell.wx - serverMap.getMinX();
             int y = cell.wy - serverMap.getMinY();
             int width = serverMap.getMaxX() - serverMap.getMinX() + 1;
@@ -814,7 +809,6 @@ public final class StormCellWarmer {
             StormCellWarmingMetrics.incEvictNearSkips(nearSkips);
         }
         StormCellWarmingMetrics.setWarmOverCap(Math.max(0, WARM_CELLS.size() - max));
-        return pathfindPaused;
     }
 
     /**

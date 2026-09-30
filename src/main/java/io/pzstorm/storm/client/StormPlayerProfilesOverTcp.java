@@ -32,7 +32,8 @@ public final class StormPlayerProfilesOverTcp {
             if (existing != null
                     && existing.isLoaded
                     && existing.username != null
-                    && existing.username.equals(GameClient.username)
+                    && existing.username.length > 0
+                    && GameClient.username.equals(existing.username[0])
                     && existing.server != null
                     && existing.server.equals(GameClient.ip)) {
                 // Vanilla's fast path will already return without network.
@@ -54,10 +55,25 @@ public final class StormPlayerProfilesOverTcp {
                     MAPPER.readTree(new String(response.body(), StandardCharsets.UTF_8))
                             .path("profiles");
 
-            ClientPlayerDB.NetworkCharacterProfile profile =
-                    new ClientPlayerDB.NetworkCharacterProfile();
-            profile.username = GameClient.username;
-            profile.server = GameClient.ip;
+            ClientPlayerDB.NetworkCharacterProfile profile = decodeProfiles(
+                    profiles, GameClient.username, GameClient.ip,
+                    profiles.isArray() && profiles.isEmpty() ? IsoWorld.getWorldVersion() : 0);
+            ClientPlayerDB.getInstance().networkProfile = profile;
+            LOGGER.info("Player profiles ({}) received over TCP", profile.playerCount);
+        } catch (Throwable t) {
+            LOGGER.error("Player profiles over TCP failed; falling back to UDP", t);
+        }
+    }
+
+    /** Decode completely before publishing; malformed replies leave the UDP fallback untouched. */
+    static ClientPlayerDB.NetworkCharacterProfile decodeProfiles(
+            JsonNode profiles, String username, String server, int freshWorldVersion) {
+            ClientPlayerDB.NetworkCharacterProfile profile = new ClientPlayerDB.NetworkCharacterProfile();
+            profile.username[0] = username;
+            profile.server = server;
+            if (!profiles.isArray() || profiles.size() > profile.character.length) {
+                throw new IllegalArgumentException("Invalid player profile slot count");
+            }
             profile.playerCount = profiles.size();
             for (int i = 0; i < profiles.size() && i < profile.character.length; i++) {
                 JsonNode p = profiles.get(i);
@@ -67,16 +83,18 @@ public final class StormPlayerProfilesOverTcp {
                 profile.y[i] = (float) p.get("y").asDouble();
                 profile.z[i] = (float) p.get("z").asDouble();
                 profile.isDead[i] = p.get("isDead").asBoolean();
+                if (i > 0) {
+                    if (!p.has("splitUsername")) {
+                        throw new IllegalArgumentException("Server lacks 42.21 split-player names");
+                    }
+                    profile.username[i] = p.path("splitUsername").asText("");
+                }
             }
             if (profile.playerCount == 0) {
                 // Same default vanilla applies for a fresh character on this server.
-                profile.worldVersion[0] = IsoWorld.getWorldVersion();
+                profile.worldVersion[0] = freshWorldVersion;
             }
             profile.isLoaded = true;
-            ClientPlayerDB.getInstance().networkProfile = profile;
-            LOGGER.info("Player profiles ({}) received over TCP", profile.playerCount);
-        } catch (Throwable t) {
-            LOGGER.error("Player profiles over TCP failed; falling back to UDP", t);
-        }
+            return profile;
     }
 }

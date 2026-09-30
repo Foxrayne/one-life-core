@@ -44,6 +44,11 @@ public class SaveChunkThreadCrcRacePatch extends StormClassTransformer {
     @Override
     public DynamicType.Builder<Object> dynamicType(
             ClassFileLocator locator, TypePool typePool, DynamicType.Builder<Object> builder) {
+        // 42.21 allocates a new method-local CRC32 for each addLoadedJob invocation.
+        if (ReviewedVanillaFix.matches(locator, className,
+                "0e5fc386370d3b949a6c5941be8a9b0de516924041dbfbaadfff09aa1e3ac7c9")) {
+            return builder;
+        }
         TypeDescription target = typePool.describe(className).resolve();
         requireDeclared(
                 !target.getDeclaredMethods()

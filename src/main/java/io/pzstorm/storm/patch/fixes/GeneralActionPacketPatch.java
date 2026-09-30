@@ -47,6 +47,12 @@ public class GeneralActionPacketPatch extends StormClassTransformer {
     @Override
     public DynamicType.Builder<Object> dynamicType(
             ClassFileLocator locator, TypePool typePool, DynamicType.Builder<Object> builder) {
+        // 42.21 setReject(byte, IsoPlayer) sends the actual player's identity.
+        // Keep vanilla's exact-player dispatch instead of our old connection-wide lookup.
+        if (ReviewedVanillaFix.matches(locator, className,
+                "398a8729da87a4c222f17473cc46c9b5cb7fd9b3f74492d283765619c1d57c8a")) {
+            return builder;
+        }
         return builder.visit(
                 Advice.to(
                                 typePool.describe(

@@ -12,6 +12,7 @@ import io.pzstorm.storm.patch.client.GameClientStartClientRetryPatch;
 import io.pzstorm.storm.patch.client.ImageDataCreateSteamAvatarLeakPatch;
 import io.pzstorm.storm.patch.client.IsoBulletTracerEffectsConfigNullGuardPatch;
 import io.pzstorm.storm.patch.client.IsoFallingClothingDropNullGuardPatch;
+import io.pzstorm.storm.patch.client.IsoHutchNullAnimalSlotGuardPatch;
 import io.pzstorm.storm.patch.client.IsoObjectAdminSeeAllTargetAlphaPatch;
 import io.pzstorm.storm.patch.client.IsoWorldInventoryObjectRenderSpriteGuardPatch;
 import io.pzstorm.storm.patch.client.LoadingQueueStateTcpDrainPatch;
@@ -545,6 +546,15 @@ public class StormClassTransformers {
         // is experimental. With it on, every native of the DLL is Java and the library is
         // never loaded.
         if (Boolean.getBoolean("storm.popman.java")) {
+            // Fail before registering any member of this all-or-nothing replacement family.
+            var populationPool =
+                    net.bytebuddy.pool.TypePool.Default.of(
+                            StormClassTransformers.class.getClassLoader());
+            new ZombiePopulationManagerNativePatch().validateContract(populationPool);
+            new MapCollisionDataNativePatch().validateContract(populationPool);
+            new MPDebugInfoNativePatch().validateContract(populationPool);
+            new DebugCommandsNativePatch().validateContract(populationPool);
+            new ZombiePopulationRendererNativePatch().validateContract(populationPool);
             registerTransformer(new ZombiePopulationManagerNativePatch());
             registerTransformer(new MapCollisionDataNativePatch());
             registerTransformer(new MPDebugInfoNativePatch());
@@ -588,6 +598,7 @@ public class StormClassTransformers {
             registerTransformer(new IsoWorldInventoryObjectRenderSpriteGuardPatch());
             registerTransformer(new CombatManagerBallisticsNullGuardPatch());
             registerTransformer(new IsoFallingClothingDropNullGuardPatch());
+            registerTransformer(new IsoHutchNullAnimalSlotGuardPatch());
             registerTransformer(new IsoBulletTracerEffectsConfigNullGuardPatch());
             registerTransformer(new RequestDataOverTcpPatch());
             registerTransformer(new PlayerProfileOverTcpPatch());
