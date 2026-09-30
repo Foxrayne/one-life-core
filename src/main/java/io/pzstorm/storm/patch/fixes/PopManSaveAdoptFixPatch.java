@@ -26,9 +26,8 @@ import net.bytebuddy.pool.TypePool;
  * exactly its real count in virtual zombies on every save (104 → 130 → 156 with 26 reals) and 117
  * virtual zombies stood at the exact float positions of 26 live ones within minutes.
  *
- * <p>This is the full-save path; the per-chunk-unload path ({@code requestSaveCell} → {@code
- * n_saveCell}) is the one {@link RequestSaveCellSuppressPatch} short-circuits, and both are covered
- * here because the popman worker can reach {@code saveCell} through its own queue.
+ * <p>This legacy Java-backend patch covers full and per-cell saves. The reviewed 42.21 native
+ * backend owns persistence; requestSaveCell is no longer suppressed.
  *
  * <h2>Why enter/exit advice and not a body replacement</h2>
  *
