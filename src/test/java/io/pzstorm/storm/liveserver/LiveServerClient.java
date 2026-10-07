@@ -277,9 +277,12 @@ public final class LiveServerClient implements AutoCloseable {
         // This reproducer deliberately targets the legacy identity-less wire
         // path. 42.21 removed that overload; do not silently simulate a different test.
         try {
-            GeneralActionPacket.class.getMethod("setReject", byte.class).invoke(packet, actionByteId);
+            GeneralActionPacket.class
+                    .getMethod("setReject", byte.class)
+                    .invoke(packet, actionByteId);
         } catch (ReflectiveOperationException unsupported) {
-            throw new IllegalStateException("Legacy reject reproducer does not apply to 42.21", unsupported);
+            throw new IllegalStateException(
+                    "Legacy reject reproducer does not apply to 42.21", unsupported);
         }
         ByteBufferWriter b = connection.startPacket();
         PacketTypes.PacketType.GeneralAction.doPacket(b);

@@ -1,27 +1,31 @@
 package io.pzstorm.storm.client;
 
 import static org.junit.jupiter.api.Assertions.*;
+
 import io.pzstorm.storm.UnitTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import se.krka.kahlua.j2se.J2SEPlatform;
+import se.krka.kahlua.j2se.MathLib;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
 import se.krka.kahlua.stdlib.BaseLib;
+import se.krka.kahlua.stdlib.CoroutineLib;
 import se.krka.kahlua.stdlib.StringLib;
 import se.krka.kahlua.stdlib.TableLib;
-import se.krka.kahlua.stdlib.CoroutineLib;
-import se.krka.kahlua.j2se.MathLib;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.KahluaThread;
 
 class BrushToolVanillaReplayTest implements UnitTest {
     private void run(KahluaThread thread, KahluaTable env, String source) throws Exception {
-        Object[] result = thread.pcall(LuaCompiler.loadstring(source, "brush-replay-test", env), new Object[0]);
+        Object[] result =
+                thread.pcall(
+                        LuaCompiler.loadstring(source, "brush-replay-test", env), new Object[0]);
         assertEquals(Boolean.TRUE, result[0], java.util.Arrays.toString(result));
     }
 
-    @Test void actualVanillaReplayAndLocalPlacementHaveNoCoreCommandOrHook() throws Exception {
+    @Test
+    void actualVanillaReplayAndLocalPlacementHaveNoCoreCommandOrHook() throws Exception {
         var platform = new J2SEPlatform();
         var env = platform.newTable();
         env.rawset("_G", env);
@@ -35,7 +39,10 @@ class BrushToolVanillaReplayTest implements UnitTest {
         thread.debugOwnerThread = Thread.currentThread();
         run(thread, env, Files.readString(Path.of("build/zomboid-classpath/stdlib.lua")));
         env.rawset("next", null);
-        run(thread, env, """
+        run(
+                thread,
+                env,
+                """
             ISBuildingObject = {derive = function(self, name) return {} end}
             callbacks = {}; registrations = 0; placements = 0
             Events = {
@@ -62,14 +69,22 @@ class BrushToolVanillaReplayTest implements UnitTest {
                 end}
             end}
             """);
-        Path vanilla = Path.of(System.getProperty("storm.server.path"),
-                "media/lua/server/BuildingObjects/ISBrushToolTileCursor.lua");
+        Path vanilla =
+                Path.of(
+                        System.getProperty("storm.server.path"),
+                        "media/lua/server/BuildingObjects/ISBrushToolTileCursor.lua");
         run(thread, env, Files.readString(vanilla));
-        run(thread, env, "originalCreate = ISBrushToolTileCursor.create; originalReplay = callbacks[1]");
+        run(
+                thread,
+                env,
+                "originalCreate = ISBrushToolTileCursor.create; originalReplay = callbacks[1]");
         String core = Files.readString(Path.of("media/lua/server/StormBrushToolFix.lua"));
         run(thread, env, core);
         run(thread, env, core);
-        run(thread, env, """
+        run(
+                thread,
+                env,
+                """
             assert(ISBrushToolTileCursor.create == originalCreate)
             assert(registrations == 1 and callbacks[1] == originalReplay)
             callbacks[1](square, "test_0")

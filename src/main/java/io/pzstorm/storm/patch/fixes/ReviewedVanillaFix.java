@@ -13,8 +13,8 @@ final class ReviewedVanillaFix {
     static boolean matches(ClassFileLocator locator, String className, String sha256) {
         try {
             byte[] bytes = locator.locate(className).resolve();
-            return sha256.equals(HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes)));
+            return sha256.equals(
+                    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
         } catch (IOException | NoSuchAlgorithmException e) {
             throw new IllegalStateException("Cannot verify upstream fix for " + className, e);
         }

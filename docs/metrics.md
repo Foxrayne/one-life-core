@@ -1068,6 +1068,8 @@ what reports that, not this table.
 | `storm_ecs_class_cache` | Gauge | `1` = the `ClassValue` memoization of `ECSComponent.getECSClass(Class)` is active (default); `0` = vanilla superclass walk on every component lookup. `Storm.EcsClassCache`. |
 | `storm_entity_remove_fast_path` | Gauge | `1` = O(1) indexed removal from the engine's global entity array is active (default); `0` = vanilla linear identity scan of the whole array. `Storm.EntityRemoveFastPath`. A self-check failure latches the fast path off without moving this gauge — watch `pz_entity_array_removes_total{path="mismatch"}`. |
 | `storm_cell_unload_budget_per_tick` | Gauge | Maximum stale cells `ServerMap.postupdate` may destructively unload per tick; the rest stay loaded and are re-evaluated next tick. Default 2; `0` = vanilla (unload every stale cell in one tick). `Storm.CellUnloadBudgetPerTick`. Has no effect while [cell warming](#cell-warming-stormcellwarmingmetrics) owns `postupdate`. |
+| `storm_pvp_hits_always_damage` | Gauge | `1` = the server ignores the shooter's failed hit-chance roll on player-on-player hits, as 42.20 did; `0` = vanilla (default). `Storm.PvpHitsAlwaysDamage`. |
+| `storm_pvp_hits_damage_restored_total` | CounterWithCallback | PvP hits that arrived flagged as zero-damage and that the server applied with full damage. Stays flat while `storm_pvp_hits_always_damage` is `0` or `FirearmUseDamageChance` is not 3. |
 
 Useful PromQL:
 
@@ -1127,7 +1129,7 @@ Metrics that measure Storm's own caches / framework code, not PZ behavior.
 
 `StormConnectionMetrics.recordAll()` is called every server tick from `ServerTickAdvice` (server-only). It iterates `GameServer.udpEngine.connections`, reads each connection's `ZNetStatistics`, and publishes per-peer gauges labelled by `username`. Vanilla PZ exports the same numbers but sums them across all peers (`network{parameter="bytes-in-send-buffer-high"}`); the per-peer breakdown identifies *which* peer is filling the buffer during a chunk-transfer storm or congested-link incident. When a peer disconnects between ticks, its label series are explicitly set to `0` so the drop is visible as a step-down rather than a stale flat line.
 
-The watchdog (see `Storm.PeerSendBufferKickMb` / `Storm.PeerSendBufferKickHoldTicks` in [Server Configuration](server-configuration.md)) reads the same per-peer HIGH send-buffer value each tick and force-disconnects peers that stay above the threshold for the configured hold window. `username` is bounded by concurrent player population; `guid:<rakNetGuid>` is used as a fallback when the connection authenticated but never set a username (~the same bound).
+The watchdog (see `Storm.PeerSendBufferKickMb` / `Storm.PeerSendBufferKickHoldTicks` in [Server Configuration](server-configuration.md)) reads the same per-peer HIGH send-buffer value each tick and force-disconnects peers that stay above the threshold for the configured hold window. A peer is never counted during its first 5 minutes after `fully-connected` (spawn), because the spawn-time sync burst routinely passes the threshold on a healthy link and takes minutes to drain. The kick sends a `Kicked` packet before the disconnect, so the client shows the reason at once instead of waiting for RakNet's notice to drain behind the backlog. `username` is bounded by concurrent player population; `guid:<rakNetGuid>` is used as a fallback when the connection authenticated but never set a username (~the same bound).
 
 | Name | Type | Labels | What |
 |------|------|--------|------|

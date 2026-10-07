@@ -73,7 +73,8 @@ class JoinFlowTest {
         String previous = System.getProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
         try {
             System.clearProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);
-            assertEquals("42.20.4_2.11.0",
+            assertEquals(
+                    "42.20.4_2.11.0",
                     JoinFlow.effectiveStormVersion(configWithStorm("42.20.4_2.11.0")));
         } finally {
             if (previous == null) System.clearProperty(JoinFlow.CORE_UPDATE_URL_PROPERTY);

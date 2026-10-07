@@ -1,3 +1,7 @@
+# Status ? 7 October 2026
+
+The user authorised integration of all reviewed additions through upstream dcc9b06 (2.13.1). The prior two-feature proposal below is retained as historical context. Current scope and validation are in docs/upstream-2.13.1-integration.md and STAGING.md. Population/container protections remain intact.
+
 # One Life Core: population saving and container protection
 
 Proposal updated 30 September 2026. This supersedes the broader release proposals. Scope is limited to these two changes, with current upstream Storm as the implementation baseline. No implementation or publication is authorized by this document alone.

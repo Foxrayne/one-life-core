@@ -348,10 +348,13 @@ class GameLaunchTest {
     }
 
     @Test
-    void clientPerfFixesDefaultOnAndOverridable() throws IOException {
+    void clientPerfFixesDefaultOffAndOverridable() throws IOException {
         GameLaunch.LaunchPlan plan = GameLaunch.plan(config(), null, null);
-        assertTrue(plan.command.contains("-D" + GameLaunch.CLIENT_PERF_PROPERTY + "=true"));
+        assertFalse(plan.command.contains("-D" + GameLaunch.CLIENT_PERF_PROPERTY + "=true"));
 
+        LauncherConfig on = config();
+        on.clientPerfFixes = true;
+        assertTrue(GameLaunch.plan(on, null, null).command.contains("-D" + GameLaunch.CLIENT_PERF_PROPERTY + "=true"));
         LauncherConfig off = config();
         off.clientPerfFixes = false;
         assertTrue(
@@ -565,7 +568,7 @@ class GameLaunchTest {
                         .anyMatch(a -> a.startsWith("-agentpath:") || a.startsWith("-javaagent:")),
                 "agent flag: " + plan.command);
         assertTrue(plan.command.contains("-D" + GameLaunch.HANDOFF_PROPERTY + "=false"));
-        assertTrue(plan.command.contains("-D" + GameLaunch.CLIENT_PERF_PROPERTY + "=true"));
+        assertFalse(plan.command.contains("-D" + GameLaunch.CLIENT_PERF_PROPERTY + "=true"));
     }
 
     @Test

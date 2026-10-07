@@ -1,3 +1,18 @@
+# 42.21_2.13.1-rc1 ? upstream integration (7 October 2026)
+
+Integrates Storm main through dcc9b065e08b047f76a9122313f4e5220743b3f8 on the population/container candidate. Retains One Life branding, native 42.21 population saving and non-destructive container transfers.
+
+- Five-minute join grace for the send-buffer watchdog; clearer disconnect message.
+- Server script-comment parsing, room-ID lookup and vehicle-zone loading optimisations.
+- Client XL-tree guard for player-built rooms with no IsoRoom.
+- Optional PvpHitsAlwaysDamage sandbox setting, default off, with translations and metrics.
+- Experimental parked-vehicle animation, persistent VBO/fence, sprite ring, cutaway and puddle optimisations, gated by storm.experimental.clientperf.
+- One Life launcher 1.2.8-rc1: automatic heap capped at 9 GB; experimental-performance settings require renewed opt-in for this generation, including legacy saved configurations. Explicit JVM options still win.
+- Local support ZIP export with required description and bounded recent logs. No upstream support webhook or automatic upload.
+- One Life launcher setup guidance and targeted bootstrap status warnings.
+
+Not published. Native Linux multiplayer and visual acceptance remain required; this release does not claim to fix random vehicle teleportation.
+
 ## 2.11.7-rc1 - population saving and container protection (staging)
 
 - Follow upstream 42.21 population persistence: remove requestSaveCell suppression and retain the vanilla queued native save path. World Essentials population settings and adapter are unchanged.

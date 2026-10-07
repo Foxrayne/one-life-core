@@ -186,6 +186,8 @@ public final class LauncherWindow extends JFrame {
         header.add(Box.createHorizontalStrut(10));
         header.add(poweredBy);
         header.add(Box.createHorizontalGlue());
+        header.add(ghost("Support report", () -> SendLogsDialog.open(this)));
+        header.add(Box.createHorizontalStrut(4));
         header.add(ghost("Privacy", this::onPrivacy));
         header.add(Box.createHorizontalStrut(4));
         header.add(ghost("Settings", this::onSettings));

@@ -25,12 +25,21 @@ class GameProcessTrackerTest {
     }
 
     private Process child(long millis) throws Exception {
-        String executable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
+        String executable =
+                System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
         return new ProcessBuilder(
-                Path.of(System.getProperty("java.home"), "bin", executable).toString(),
-                "-cp", Path.of(GameProcessTrackerTest.class.getProtectionDomain()
-                        .getCodeSource().getLocation().toURI()).toString(),
-                Child.class.getName(), Long.toString(millis)).start();
+                        Path.of(System.getProperty("java.home"), "bin", executable).toString(),
+                        "-cp",
+                        Path.of(
+                                        GameProcessTrackerTest.class
+                                                .getProtectionDomain()
+                                                .getCodeSource()
+                                                .getLocation()
+                                                .toURI())
+                                .toString(),
+                        Child.class.getName(),
+                        Long.toString(millis))
+                .start();
     }
 
     @BeforeEach

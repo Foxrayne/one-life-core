@@ -44,7 +44,8 @@ class ZombiePopulationManagerNativePatchTest implements UnitTest {
         assertTrue(loadLibraryCallers(original).contains("init"), "vanilla loads it in init()");
         if (persistentIdGame()) {
             // No output bytes may be produced with the DLL removed and live JNI left behind.
-            org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    RuntimeException.class,
                     () -> new ZombiePopulationManagerNativePatch().transform(original));
             return;
         }
@@ -87,14 +88,22 @@ class ZombiePopulationManagerNativePatchTest implements UnitTest {
 
     private static boolean persistentIdGame() {
         return !net.bytebuddy.pool.TypePool.Default.ofSystemLoader()
-                .describe("zombie.popman.ZombiePopulationManager").resolve().getDeclaredMethods()
-                .filter(net.bytebuddy.matcher.ElementMatchers.named("n_registerZombie")).isEmpty();
+                .describe("zombie.popman.ZombiePopulationManager")
+                .resolve()
+                .getDeclaredMethods()
+                .filter(net.bytebuddy.matcher.ElementMatchers.named("n_registerZombie"))
+                .isEmpty();
     }
 
     private static void assertUnsupportedContract() {
-        var error = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                () -> new ZombiePopulationManagerNativePatch().validateContract(
-                        net.bytebuddy.pool.TypePool.Default.ofSystemLoader()));
+        var error =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                new ZombiePopulationManagerNativePatch()
+                                        .validateContract(
+                                                net.bytebuddy.pool.TypePool.Default
+                                                        .ofSystemLoader()));
         assertTrue(error.getMessage().contains("storm.popman.java"));
     }
 }

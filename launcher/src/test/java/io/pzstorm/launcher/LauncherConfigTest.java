@@ -299,14 +299,15 @@ class LauncherConfigTest {
     }
 
     @Test
-    void clientPerfFixesPersistAndDefaultOn() throws IOException {
+    void clientPerfFixesPersistAndDefaultOff() throws IOException {
         LauncherConfig config = new LauncherConfig();
-        assertTrue(config.clientPerfFixes);
+        org.junit.jupiter.api.Assertions.assertFalse(config.clientPerfFixes);
         config.clientPerfFixes = false;
         Path file = tmp.resolve("launcher.json");
         config.save(file);
         assertTrue(!LauncherConfig.load(file).clientPerfFixes);
-        assertTrue(LauncherConfig.load(tmp.resolve("missing.json")).clientPerfFixes);
+        org.junit.jupiter.api.Assertions.assertFalse(
+                LauncherConfig.load(tmp.resolve("missing.json")).clientPerfFixes);
     }
 
     @Test
@@ -341,5 +342,16 @@ class LauncherConfigTest {
         assertEquals(4, loaded.resolveMemoryGb());
         loaded.memoryGb = 99;
         assertEquals(32, loaded.resolveMemoryGb());
+    }
+
+    @Test
+    void legacyPerformanceSettingNeedsRenewedOptIn() throws Exception {
+        Path file = tmp.resolve("legacy.json");
+        Files.writeString(file, "{\"clientPerfFixes\":true}");
+        org.junit.jupiter.api.Assertions.assertFalse(LauncherConfig.load(file).clientPerfFixes);
+        LauncherConfig config = LauncherConfig.load(file);
+        config.clientPerfFixes = true;
+        config.save(file);
+        assertTrue(LauncherConfig.load(file).clientPerfFixes);
     }
 }
