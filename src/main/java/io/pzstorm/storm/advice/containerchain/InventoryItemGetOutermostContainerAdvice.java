@@ -7,8 +7,7 @@ import net.bytebuddy.implementation.bytecode.assign.Assigner;
 /**
  * Replaces the body of {@code InventoryItem.getOutermostContainer()} with the bounded walk in
  * {@link ContainerChainGuard#getOutermostContainerOfItem(Object)}. Vanilla's {@code while} loop
- * never exits on a cyclic chain. Helper failures refuse the operation instead of entering vanilla
- * recursion.
+ * never exits on a cyclic chain. If the helper throws, the vanilla body runs.
  */
 public class InventoryItemGetOutermostContainerAdvice {
 
@@ -17,8 +16,7 @@ public class InventoryItemGetOutermostContainerAdvice {
         try {
             return ContainerChainGuard.getOutermostContainerOfItem(item);
         } catch (Throwable t) {
-            ContainerChainGuard.failed("lookup helper failed");
-            return ContainerChainGuard.NONE;
+            return null;
         }
     }
 

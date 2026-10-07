@@ -6,8 +6,8 @@ import net.bytebuddy.implementation.bytecode.assign.Assigner;
 
 /**
  * Replaces the body of {@code ItemContainer.getOutermostContainer()} with the bounded walk in
- * {@link ContainerChainGuard#getOutermostContainer(Object)}. If the helper throws, returns null
- * without re-entering unsafe vanilla traversal.
+ * {@link ContainerChainGuard#getOutermostContainer(Object)}. If the helper throws, the vanilla body
+ * runs.
  */
 public class ItemContainerGetOutermostContainerAdvice {
 
@@ -16,8 +16,7 @@ public class ItemContainerGetOutermostContainerAdvice {
         try {
             return ContainerChainGuard.getOutermostContainer(container);
         } catch (Throwable t) {
-            ContainerChainGuard.failed("lookup helper failed");
-            return ContainerChainGuard.NONE;
+            return null;
         }
     }
 
@@ -26,7 +25,7 @@ public class ItemContainerGetOutermostContainerAdvice {
             @Advice.Enter Object computed,
             @Advice.Return(readOnly = false, typing = Assigner.Typing.DYNAMIC) Object returned) {
         if (computed != null) {
-            returned = computed == ContainerChainGuard.NONE ? null : computed;
+            returned = computed;
         }
     }
 }

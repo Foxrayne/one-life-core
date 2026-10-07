@@ -5,8 +5,8 @@ import net.bytebuddy.asm.Advice;
 
 /**
  * Replaces the body of {@code ItemContainer.isInside(InventoryItem)} with the bounded walk in
- * {@link ContainerChainGuard#isInside(Object, Object)}. The enter value is 1 for {@code false}, 2
- * for {@code true}.
+ * {@link ContainerChainGuard#isInside(Object, Object)}. The enter value is 0 when the helper threw
+ * (vanilla body runs), 1 for {@code false}, 2 for {@code true}.
  */
 public class ItemContainerIsInsideAdvice {
 
@@ -15,8 +15,7 @@ public class ItemContainerIsInsideAdvice {
         try {
             return ContainerChainGuard.isInside(container, item);
         } catch (Throwable t) {
-            ContainerChainGuard.failed("lookup helper failed");
-            return 1;
+            return 0;
         }
     }
 

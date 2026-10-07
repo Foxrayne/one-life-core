@@ -3,200 +3,236 @@ package io.pzstorm.storm.patch.fixes;
 import static io.pzstorm.storm.logging.StormLogger.LOGGER;
 
 import io.pzstorm.storm.metrics.ContainerChainGuardMetrics;
-import java.util.ArrayDeque;
-import java.util.IdentityHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.ArrayList;
 import zombie.characters.IsoGameCharacter;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.ItemContainer;
 import zombie.inventory.types.InventoryContainer;
 
 /**
- * Upstream 3659e9f container guards, with bounded, non-destructive corruption handling. A failed
- * lookup never repairs either client's or server's inventory behind a getter. Invalid structures
- * remain available for explicit recovery; insertion and serialization refuse them instead of
- * orphaning items or recursing. Budget exhaustion is not reported as a cycle.
+ * Cycle-safe replacements for the vanilla walks up the container chain ({@code ItemContainer}
+ * &rarr; {@code containingItem} &rarr; {@code InventoryItem.getContainer()} &rarr; ...), behind
+ * {@link ItemContainerChainGuardPatch} and {@link InventoryItemGetOutermostContainerPatch}.
+ *
+ * <h2>The bug this heals</h2>
+ *
+ * <p>Vanilla assumes the chain is a tree. {@code ItemContainer.getCharacter()}, {@code
+ * getOutermostContainer()}, {@code isInside()} and {@code isInCharacterInventory()} recurse through
+ * it with no bound; {@code InventoryItem.getOutermostContainer()} spins a {@code while} loop over
+ * it. Once a bag ends up inside its own inventory (or two bags inside each other) the recursive
+ * walks throw {@code StackOverflowError} on the main thread and the {@code while} loop pins it at 0
+ * TPS. {@code ItemContainer.AddItem(InventoryItem)} never checks for this, so a single malformed
+ * transfer creates the cycle, and the next {@code Remove()} (which calls {@code getCharacter()}) or
+ * the next periodic save (which descends the same links) takes the server down. Seen live as
+ * thousands of {@code ItemContainer.getCharacter(ItemContainer.java)} frames in the server log.
+ *
+ * <h2>The fix</h2>
+ *
+ * <p>Every walk is bounded by {@link #MAX_DEPTH}. A chain that does not terminate within that many
+ * hops is a cycle; {@link #repair} finds the container the walk revisits, detaches the item that
+ * links into it (the item that was placed inside itself), logs it at WARN with enough detail to
+ * restore it, and counts it. The walk then completes on the repaired chain. {@link #wouldNest}
+ * refuses the {@code AddItem} that would create such a cycle in the first place.
+ *
+ * <p>Parameters are typed {@code Object} so the inlined advice does not embed checkcasts against
+ * game classes into the patched method; the casts happen here.
  */
 public final class ContainerChainGuard {
+
+    /** Result marker for "the vanilla method would have returned {@code null}". */
     public static final Object NONE = new Object();
-    static final int MAX_DEPTH = 1024;
-    static final int MAX_TREE_ITEMS = 65536;
-    static final int MAX_TREE_DEPTH = 128;
-    private static final ThreadLocal<ArrayDeque<IdentityHashMap<ItemContainer, Boolean>>> saving =
-            ThreadLocal.withInitial(ArrayDeque::new);
-    private static final AtomicLong nextWarning = new AtomicLong();
+
+    /**
+     * Real nesting never gets near this: bags cap at 50 capacity and lose weight reduction when
+     * nested, so a chain deeper than a handful of hops is already a cycle.
+     */
+    static final int MAX_DEPTH = 64;
 
     private ContainerChainGuard() {}
 
-    public static void failed(String reason) {
-        ContainerChainGuardMetrics.recordBlockedLookup();
-        long now = System.nanoTime(), due = nextWarning.get();
-        if (now >= due && nextWarning.compareAndSet(due, now + 30_000_000_000L)) {
-            LOGGER.warn(
-                    "ContainerChainGuard: {}; operation refused, items retained for recovery",
-                    reason);
-        }
-    }
-
-    /** Floyd cycle detection keeps common getters allocation-free. -1 means invalid/excessive. */
-    private static int chainLength(ItemContainer start, boolean stopAtFloor) {
-        ItemContainer slow = start, fast = start;
-        int count = 0;
-        while (slow != null && !(stopAtFloor && "floor".equals(slow.getType()))) {
-            if (++count > MAX_DEPTH) {
-                failed("parent depth budget exceeded");
-                return -1;
+    /** Replacement for {@code ItemContainer.getCharacter()}. Never returns {@code null}. */
+    public static Object getCharacter(Object containerRef) {
+        ItemContainer start = (ItemContainer) containerRef;
+        ensureAcyclic(start);
+        ItemContainer c = start;
+        for (int hops = 0; c != null && hops <= MAX_DEPTH; hops++) {
+            if (c.getParent() instanceof IsoGameCharacter chr) {
+                return chr;
             }
-            slow = step(slow, stopAtFloor);
-            fast = step(step(fast, stopAtFloor), stopAtFloor);
-            if (slow != null && slow == fast) {
-                failed("cyclic parent chain");
-                return -1;
-            }
-        }
-        return count;
-    }
-
-    private static ItemContainer step(ItemContainer c, boolean stopAtFloor) {
-        return c == null || (stopAtFloor && "floor".equals(c.getType())) ? null : outer(c);
-    }
-
-    public static Object getCharacter(Object ref) {
-        ItemContainer c = (ItemContainer) ref;
-        int length = chainLength(c, false);
-        for (int i = 0; i < length; i++, c = outer(c)) {
-            if (c.getParent() instanceof IsoGameCharacter chr) return chr;
+            c = outer(c);
         }
         return NONE;
     }
 
-    public static Object getOutermostContainer(Object ref) {
-        ItemContainer c = (ItemContainer) ref;
-        int length = chainLength(c, false);
-        if (length <= 0) return NONE;
-        for (int i = 1; i < length; i++) c = outer(c);
-        return c;
-    }
-
-    public static Object getOutermostContainerOfItem(Object ref) {
-        ItemContainer c = ((InventoryItem) ref).getContainer();
-        int length = chainLength(c, true);
-        if (length <= 0) return NONE;
-        for (int i = 1; i < length; i++) c = outer(c);
-        return c;
-    }
-
-    public static int isInside(Object ref, Object item) {
-        if (item == null) return 1;
-        ItemContainer c = (ItemContainer) ref;
-        int length = chainLength(c, false);
-        for (int i = 0; i < length; i++, c = outer(c)) if (c.getContainingItem() == item) return 2;
-        return 1;
-    }
-
-    public static int isInCharacterInventory(Object ref, Object character) {
-        if (!(character instanceof IsoGameCharacter chr)) return 1;
-        ItemContainer c = (ItemContainer) ref;
-        int length = chainLength(c, false);
-        for (int i = 0; i < length; i++, c = outer(c)) if (c == chr.getInventory()) return 2;
-        // Do not re-enter vanilla's recursive contains on inconsistent parent/child links.
-        return 1;
-    }
-
-    /** Includes malformed destination chains and child graphs, not just direct self-insertion. */
-    public static boolean wouldNest(Object targetRef, Object itemRef) {
-        if (!(targetRef instanceof ItemContainer target)
-                || !(itemRef instanceof InventoryItem item)) return false;
-        int length = chainLength(target, false);
-        boolean refused = length < 0;
-        if (!refused && item instanceof InventoryContainer bag) {
-            ItemContainer c = target;
-            for (int i = 0; i < length; i++, c = outer(c))
-                if (c == bag.getInventory() || c.getContainingItem() == bag) {
-                    refused = true;
-                    break;
-                }
-            if (!refused) refused = !validTree(bag.getInventory(), target);
-        }
-        if (refused) {
-            ContainerChainGuardMetrics.recordRefusedNesting();
-            failed("unsafe container insertion");
-        }
-        return refused;
-    }
-
-    public static boolean validParents(ItemContainer container) {
-        return chainLength(container, false) >= 0;
-    }
-
-    private record Node(ItemContainer container, int depth) {}
-
-    /** Identity-based bounded traversal; also catches duplicate references and broken backlinks. */
-    public static boolean validTree(ItemContainer root, ItemContainer forbidden) {
-        if (root == null) return false;
-        return validTree(root, forbidden, new IdentityHashMap<>());
-    }
-
-    private static boolean validTree(
-            ItemContainer root,
-            ItemContainer forbidden,
-            IdentityHashMap<ItemContainer, Boolean> containers) {
-        var stack = new ArrayDeque<Node>();
-        var items = new IdentityHashMap<InventoryItem, Boolean>();
-        stack.push(new Node(root, 0));
-        int count = 0;
-        while (!stack.isEmpty()) {
-            Node node = stack.pop();
-            ItemContainer c = node.container();
-            if (c == forbidden
-                    || node.depth() > MAX_TREE_DEPTH
-                    || containers.put(c, Boolean.TRUE) != null) return false;
-            if (c.getItems() == null || c.getItems().size() > MAX_TREE_ITEMS - count) return false;
-            for (InventoryItem item : c.getItems()) {
-                if (++count > MAX_TREE_ITEMS
-                        || item == null
-                        || items.put(item, Boolean.TRUE) != null
-                        || item.getContainer() != c) return false;
-                if (item instanceof InventoryContainer bag) {
-                    ItemContainer child = bag.getInventory();
-                    if (child == null || child.getContainingItem() != bag) return false;
-                    stack.push(new Node(child, node.depth() + 1));
-                }
+    /**
+     * Replacement for {@code ItemContainer.getOutermostContainer()}. Never returns {@code null}.
+     */
+    public static Object getOutermostContainer(Object containerRef) {
+        ItemContainer start = (ItemContainer) containerRef;
+        ensureAcyclic(start);
+        ItemContainer c = start;
+        for (int hops = 0; hops <= MAX_DEPTH; hops++) {
+            ItemContainer next = outer(c);
+            if (next == null) {
+                return c;
             }
+            c = next;
         }
-        return true;
+        return start;
     }
 
-    /** Checks once per synchronous save tree, including both save overloads and nested bags. */
-    public static boolean beginSave(Object ref) {
-        ItemContainer container = (ItemContainer) ref;
-        var scopes = saving.get();
-        if (!scopes.isEmpty() && scopes.peek().containsKey(container)) return false;
-        var checked = new IdentityHashMap<ItemContainer, Boolean>();
-        if (container == null || !validTree(container, null, checked)) {
-            if (scopes.isEmpty()) saving.remove();
-            failed("corrupt or over-budget inventory serialization");
-            throw new IllegalStateException(
-                    "Unsafe inventory tree: save refused; items retained for recovery");
+    /**
+     * Replacement for {@code InventoryItem.getOutermostContainer()}, which stops at a floor
+     * container and returns {@code null} for an item that is not in a container. Never returns
+     * {@code null}; {@link #NONE} stands in for it.
+     */
+    public static Object getOutermostContainerOfItem(Object itemRef) {
+        InventoryItem item = (InventoryItem) itemRef;
+        if (item.getContainer() != null) {
+            ensureAcyclic(item.getContainer());
         }
-        scopes.push(checked);
-        return true;
+        ItemContainer c = item.getContainer();
+        if (c == null || "floor".equals(c.getType())) {
+            return NONE;
+        }
+        for (int hops = 0; hops <= MAX_DEPTH; hops++) {
+            ItemContainer next = outer(c);
+            if (next == null || "floor".equals(next.getType())) {
+                return c;
+            }
+            c = next;
+        }
+        return c;
     }
 
-    public static void endSave(boolean owner) {
-        if (!owner) return;
-        var scopes = saving.get();
-        scopes.pop();
-        if (scopes.isEmpty()) saving.remove();
+    /** Replacement for {@code ItemContainer.isInside(InventoryItem)}: 2 = true, 1 = false. */
+    public static int isInside(Object containerRef, Object itemRef) {
+        ItemContainer start = (ItemContainer) containerRef;
+        ensureAcyclic(start);
+        ItemContainer c = start;
+        for (int hops = 0; c != null && hops <= MAX_DEPTH; hops++) {
+            InventoryItem holder = c.getContainingItem();
+            if (holder == null) {
+                return 1;
+            }
+            if (holder == itemRef) {
+                return 2;
+            }
+            c = holder.getContainer();
+        }
+        return 1;
     }
 
-    public static void requireSerializable(Object ref) {
-        boolean owner = beginSave(ref);
-        endSave(owner);
+    /**
+     * Replacement for {@code ItemContainer.isInCharacterInventory(IsoGameCharacter)}: 2 = true, 1 =
+     * false.
+     */
+    public static int isInCharacterInventory(Object containerRef, Object characterRef) {
+        ItemContainer start = (ItemContainer) containerRef;
+        ItemContainer inventory = ((IsoGameCharacter) characterRef).getInventory();
+        ensureAcyclic(start);
+        ItemContainer c = start;
+        for (int hops = 0; c != null && hops <= MAX_DEPTH; hops++) {
+            if (c == inventory) {
+                return 2;
+            }
+            InventoryItem holder = c.getContainingItem();
+            if (holder == null) {
+                return 1;
+            }
+            if (inventory.contains(holder, true)) {
+                return 2;
+            }
+            c = holder.getContainer();
+        }
+        return 1;
+    }
+
+    /**
+     * Gate for {@code ItemContainer.AddItem(InventoryItem)}: {@code true} when adding {@code item}
+     * to {@code container} would put the item inside its own inventory, directly or through any
+     * number of bags. Logs and counts the refusal.
+     */
+    public static boolean wouldNest(Object containerRef, Object itemRef) {
+        if (!(itemRef instanceof InventoryContainer bag)) {
+            return false;
+        }
+        ItemContainer target = (ItemContainer) containerRef;
+        ensureAcyclic(target);
+        ItemContainer c = target;
+        for (int hops = 0; c != null && hops <= MAX_DEPTH; hops++) {
+            if (c.getContainingItem() == bag) {
+                ContainerChainGuardMetrics.recordRefusedNesting();
+                LOGGER.warn(
+                        "ContainerChainGuard: refused to put {} (id {}) inside itself via"
+                                + " container [type {}, parent {}]",
+                        bag.getFullType(),
+                        bag.getID(),
+                        target.getType(),
+                        target.getParent());
+                return true;
+            }
+            c = outer(c);
+        }
+        return false;
     }
 
     static ItemContainer outer(ItemContainer c) {
         InventoryItem holder = c.getContainingItem();
         return holder == null ? null : holder.getContainer();
+    }
+
+    /** Runs {@link #repair} when the chain above {@code start} does not end within the bound. */
+    static void ensureAcyclic(ItemContainer start) {
+        ItemContainer c = start;
+        for (int hops = 0; hops <= MAX_DEPTH; hops++) {
+            c = outer(c);
+            if (c == null) {
+                return;
+            }
+        }
+        repair(start);
+    }
+
+    /**
+     * Walks up from {@code start} remembering every container seen. The first container seen twice
+     * closes the cycle; the item that links into it is detached from it. Returns {@code true} when
+     * a link was cut.
+     */
+    static boolean repair(ItemContainer start) {
+        ArrayList<ItemContainer> seen = new ArrayList<>();
+        ItemContainer c = start;
+        while (c != null) {
+            for (int i = 0; i < seen.size(); i++) {
+                if (seen.get(i) == c) {
+                    return detach(seen.get(seen.size() - 1).getContainingItem(), c);
+                }
+            }
+            seen.add(c);
+            c = outer(c);
+        }
+        return false;
+    }
+
+    private static boolean detach(InventoryItem item, ItemContainer from) {
+        if (item == null || item.getContainer() != from) {
+            return false;
+        }
+        ArrayList<InventoryItem> items = from.getItems();
+        for (int i = items.size() - 1; i >= 0; i--) {
+            if (items.get(i) == item) {
+                items.remove(i);
+            }
+        }
+        item.setContainer(null);
+        ContainerChainGuardMetrics.recordRepairedCycle();
+        LOGGER.warn(
+                "ContainerChainGuard: {} (id {}) was inside its own contents; detached it from"
+                        + " container [type {}, parent {}] to break the cycle",
+                item.getFullType(),
+                item.getID(),
+                from.getType(),
+                from.getParent());
+        return true;
     }
 }

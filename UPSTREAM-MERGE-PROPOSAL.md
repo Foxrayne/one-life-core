@@ -1,3 +1,7 @@
+# rc2 scope correction ? 7 October 2026
+
+User-directed exact upstream alignment now supersedes prior statements below about local non-destructive container safeguards and the retired brush override. See docs/population-container-integration.md for current behaviour and known validation limits. Current candidate is 42.21_2.13.1-rc2; launcher remains 1.2.8-rc1.
+
 # Status ? 7 October 2026
 
 The user authorised integration of all reviewed additions through upstream dcc9b06 (2.13.1). The prior two-feature proposal below is retained as historical context. Current scope and validation are in docs/upstream-2.13.1-integration.md and STAGING.md. Population/container protections remain intact.

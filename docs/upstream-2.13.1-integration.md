@@ -1,3 +1,7 @@
+# rc2 scope correction ? 7 October 2026
+
+User-directed exact upstream alignment now supersedes prior statements below about local non-destructive container safeguards and the retired brush override. See docs/population-container-integration.md for current behaviour and known validation limits. Current candidate is 42.21_2.13.1-rc2; launcher remains 1.2.8-rc1.
+
 # Storm 2.13.1 integration
 
 Baseline f7ae1eb; upstream delta 3659e9f..dcc9b06. Applied as a three-way delta rather than replacing the whole fork. Population saving, transactional container safeguards, Workshop IDs, disabled upstream self-update destinations, and One Life launcher branding are retained. Separate unfinished visual-development worktree is not included.

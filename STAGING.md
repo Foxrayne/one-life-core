@@ -1,3 +1,7 @@
+# rc2 scope correction ? 7 October 2026
+
+User-directed exact upstream alignment now supersedes prior statements below about local non-destructive container safeguards and the retired brush override. See docs/population-container-integration.md for current behaviour and known validation limits. Current candidate is 42.21_2.13.1-rc2; launcher remains 1.2.8-rc1.
+
 # One Life Core 42.21_2.13.1-rc1 staging
 
 Unpublished candidate, launcher 1.2.8-rc1, upstream main dcc9b06. Includes the earlier population/container work. See CHANGELOG.md and docs/upstream-2.13.1-integration.md.

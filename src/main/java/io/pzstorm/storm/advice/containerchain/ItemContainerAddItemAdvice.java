@@ -6,7 +6,7 @@ import net.bytebuddy.asm.Advice;
 /**
  * Gates {@code ItemContainer.AddItem(InventoryItem)}: when the add would place a bag inside its own
  * contents, the vanilla body is skipped and the method returns {@code null}, the same value vanilla
- * returns for an item it cannot add. If the helper throws, insertion is refused.
+ * returns for an item it cannot add. If the helper throws, the vanilla body runs.
  */
 public class ItemContainerAddItemAdvice {
 
@@ -15,8 +15,7 @@ public class ItemContainerAddItemAdvice {
         try {
             return ContainerChainGuard.wouldNest(container, item);
         } catch (Throwable t) {
-            ContainerChainGuard.failed("insertion helper failed");
-            return true;
+            return false;
         }
     }
 }

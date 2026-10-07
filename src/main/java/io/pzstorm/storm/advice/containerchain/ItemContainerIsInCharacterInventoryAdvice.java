@@ -15,8 +15,7 @@ public class ItemContainerIsInCharacterInventoryAdvice {
         try {
             return ContainerChainGuard.isInCharacterInventory(container, character);
         } catch (Throwable t) {
-            ContainerChainGuard.failed("lookup helper failed");
-            return 1;
+            return 0;
         }
     }
 

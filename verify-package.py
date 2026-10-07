@@ -25,8 +25,10 @@ else:
         names = jar.namelist()
         forbidden = ("io/pzstorm/storm/client/visuals/", "shaders/", "zombie/")
         failures.extend(f"Unexpected JAR entry: {name}" for name in names if name.startswith(forbidden))
-        if jar.read("storm-version.properties").decode().strip() != "version=42.21_2.13.1-rc1":
+        if jar.read("storm-version.properties").decode().strip() != "version=42.21_2.13.1-rc2":
             failures.append("Incorrect Core version")
+        if any("ContainerInsertion" in name or "ItemContainerSaveAdvice" in name for name in names):
+            failures.append("Removed One Life container implementation remains in package")
         if any("RequestSaveCellSuppress" in name for name in names):
             failures.append("Obsolete population-save suppression is present")
         for required in (
@@ -36,7 +38,6 @@ else:
             "io/pzstorm/storm/patch/performance/ScriptParserCommentsPatch.class",
             "io/pzstorm/storm/patch/fixes/ItemContainerChainGuardPatch.class",
             "io/pzstorm/storm/patch/fixes/InventoryItemGetOutermostContainerPatch.class",
-            "io/pzstorm/storm/transfer/ContainerInsertion.class",
             "io/pzstorm/storm/patch/client/IsoHutchNullAnimalSlotGuardPatch.class",
         ):
             if required not in names:
@@ -45,4 +46,4 @@ if list(payload.rglob("OneLifeVisualOptions.lua")):
     failures.append("Unfinished visual options are present")
 if failures:
     raise SystemExit("Verification failed:\n" + "\n".join(failures))
-print(f"Verified {len(manifest)} payload files: One Life Core 42.21_2.13.1-rc1 (upstream integration).")
+print(f"Verified {len(manifest)} payload files: One Life Core 42.21_2.13.1-rc2 (upstream integration).")

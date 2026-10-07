@@ -1,3 +1,10 @@
+# 42.21_2.13.1-rc2 ? upstream brush/container alignment
+
+- Restore Storm main dcc9b06 brush Lua, container guards/advice/metrics and transfer handler exactly.
+- Remove One Life-only insertion rollback and container serialization preflight.
+- Retain upstream-aligned vanilla population saving (no request suppression).
+- No Workshop publication. Brush replay and live multiplayer acceptance remain outstanding.
+
 # 42.21_2.13.1-rc1 ? upstream integration (7 October 2026)
 
 Integrates Storm main through dcc9b065e08b047f76a9122313f4e5220743b3f8 on the population/container candidate. Retains One Life branding, native 42.21 population saving and non-destructive container transfers.

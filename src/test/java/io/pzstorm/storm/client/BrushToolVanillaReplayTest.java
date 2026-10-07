@@ -25,7 +25,7 @@ class BrushToolVanillaReplayTest implements UnitTest {
     }
 
     @Test
-    void actualVanillaReplayAndLocalPlacementHaveNoCoreCommandOrHook() throws Exception {
+    void upstreamBrushWrapperInterceptsVanillaReplayOn4221() throws Exception {
         var platform = new J2SEPlatform();
         var env = platform.newTable();
         env.rawset("_G", env);
@@ -47,11 +47,11 @@ class BrushToolVanillaReplayTest implements UnitTest {
             callbacks = {}; registrations = 0; placements = 0
             Events = {
                 OnTileObjectAdded = {Add = function(fn) registrations = registrations + 1; callbacks[registrations] = fn end},
-                OnClientCommand = {Add = function() error("Unexpected Core brush command") end}
+                OnClientCommand = {Add = function(fn) serverHandler = fn end}
             }
             require = function() end
             isClient = function() return true end
-            sendClientCommand = function() error("Server replay sent another client command") end
+            commands = 0; sendClientCommand = function(character, module, command, args) commands = commands + 1 end
             showDebugInfoInChat = function() end
             local objects = {size = function() return 0 end}
             square = {getObjects = function() return objects end,
@@ -80,19 +80,18 @@ class BrushToolVanillaReplayTest implements UnitTest {
                 "originalCreate = ISBrushToolTileCursor.create; originalReplay = callbacks[1]");
         String core = Files.readString(Path.of("media/lua/server/StormBrushToolFix.lua"));
         run(thread, env, core);
-        run(thread, env, core);
         run(
                 thread,
                 env,
                 """
-            assert(ISBrushToolTileCursor.create == originalCreate)
+            assert(ISBrushToolTileCursor.create ~= originalCreate)
             assert(registrations == 1 and callbacks[1] == originalReplay)
             callbacks[1](square, "test_0")
-            assert(placements == 1 and lastCharacter == nil)
+            assert(placements == 0 and commands == 1) -- upstream re-sends server replay
             isClient = function() return false end
             local character = {}
             ISBrushToolTileCursor.create({character = character}, 12, 34, 0, false, "test_0")
-            assert(placements == 2 and lastCharacter == character)
+            assert(placements == 1 and lastCharacter == character)
             assert(next == nil)
             """);
     }

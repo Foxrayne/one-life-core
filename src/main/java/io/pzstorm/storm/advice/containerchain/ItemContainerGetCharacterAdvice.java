@@ -6,8 +6,7 @@ import net.bytebuddy.implementation.bytecode.assign.Assigner;
 
 /**
  * Replaces the body of {@code ItemContainer.getCharacter()} with the bounded walk in {@link
- * ContainerChainGuard#getCharacter(Object)}. Helper failures refuse the operation instead of
- * entering vanilla recursion.
+ * ContainerChainGuard#getCharacter(Object)}. If the helper throws, the vanilla body runs.
  */
 public class ItemContainerGetCharacterAdvice {
 
@@ -16,8 +15,7 @@ public class ItemContainerGetCharacterAdvice {
         try {
             return ContainerChainGuard.getCharacter(container);
         } catch (Throwable t) {
-            ContainerChainGuard.failed("lookup helper failed");
-            return ContainerChainGuard.NONE;
+            return null;
         }
     }
 

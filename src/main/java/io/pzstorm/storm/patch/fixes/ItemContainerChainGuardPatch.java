@@ -31,16 +31,6 @@ public class ItemContainerChainGuardPatch extends StormClassTransformer {
             ClassFileLocator locator, TypePool typePool, DynamicType.Builder<Object> builder) {
         return builder.visit(
                         Advice.to(
-                                        typePool.describe(PKG + "ItemContainerSaveAdvice")
-                                                .resolve(),
-                                        locator)
-                                .on(
-                                        ElementMatchers.named("save")
-                                                .and(
-                                                        ElementMatchers.takesArgument(
-                                                                0, java.nio.ByteBuffer.class))))
-                .visit(
-                        Advice.to(
                                         typePool.describe(PKG + "ItemContainerGetCharacterAdvice")
                                                 .resolve(),
                                         locator)
