@@ -25,7 +25,7 @@ class BrushToolVanillaReplayTest implements UnitTest {
     }
 
     @Test
-    void upstreamBrushWrapperInterceptsVanillaReplayOn4221() throws Exception {
+    void coreLeavesVanillaBrushReplayUntouchedOn4221() throws Exception {
         var platform = new J2SEPlatform();
         var env = platform.newTable();
         env.rawset("_G", env);
@@ -84,14 +84,14 @@ class BrushToolVanillaReplayTest implements UnitTest {
                 thread,
                 env,
                 """
-            assert(ISBrushToolTileCursor.create ~= originalCreate)
+            assert(ISBrushToolTileCursor.create == originalCreate)
             assert(registrations == 1 and callbacks[1] == originalReplay)
             callbacks[1](square, "test_0")
-            assert(placements == 0 and commands == 1) -- upstream re-sends server replay
+            assert(placements == 1 and commands == 0)
             isClient = function() return false end
             local character = {}
             ISBrushToolTileCursor.create({character = character}, 12, 34, 0, false, "test_0")
-            assert(placements == 1 and lastCharacter == character)
+            assert(placements == 2 and lastCharacter == character and commands == 0)
             assert(next == nil)
             """);
     }

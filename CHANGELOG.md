@@ -1,7 +1,7 @@
-# 42.21_2.13.1-rc3 — One/Life server address update (10 October 2026)
+# 42.21_2.13.1-rc4 — brush sync fix and server address (10 October 2026)
 
-- Update the launcher one-click join target, community card, README, Workshop description and privacy-policy server reference to 198.27.75.78:16261.
-- Bump Core and launcher candidate versions so existing installs can distinguish this build from the published rc2.
+- Restore vanilla 42.21 brush placement and client replay. The old wrapper intercepted replay through the class table and attempted to send a client command without a player.
+- Keep the updated launcher one-click join target, community card, README, Workshop description and privacy-policy server reference at 198.27.75.78:16261.
 
 # 42.21_2.13.1-rc2 ? upstream brush/container alignment
 
