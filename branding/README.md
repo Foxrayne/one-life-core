@@ -29,7 +29,7 @@ The generated art uses the supplied One/Life heart-and-knife references and the 
 
 ## Community endpoints
 
-- Server: `172.240.18.253:16261`
+- Server: `198.27.75.78:16261`
 - Discord: `https://discord.gg/qccG89rvzT`
 
 ## Update and privacy policy

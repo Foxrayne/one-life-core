@@ -27,7 +27,7 @@ import javax.swing.JPanel;
  */
 public final class SponsorPanel extends JPanel {
 
-    public static final String ONE_LIFE_HOST = "172.240.18.253";
+    public static final String ONE_LIFE_HOST = "198.27.75.78";
     public static final int ONE_LIFE_PORT = 16261;
     private static final String DISCORD_URL = "https://discord.gg/qccG89rvzT";
 

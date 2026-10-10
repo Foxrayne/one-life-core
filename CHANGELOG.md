@@ -1,3 +1,8 @@
+# 42.21_2.13.1-rc3 — One/Life server address update (10 October 2026)
+
+- Update the launcher one-click join target, community card, README, Workshop description and privacy-policy server reference to 198.27.75.78:16261.
+- Bump Core and launcher candidate versions so existing installs can distinguish this build from the published rc2.
+
 # 42.21_2.13.1-rc2 ? upstream brush/container alignment
 
 - Restore Storm main dcc9b06 brush Lua, container guards/advice/metrics and transfer handler exactly.

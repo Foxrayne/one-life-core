@@ -15,7 +15,7 @@ Indie Stone or Valve. Project Zomboid and Steam are trademarks of their
 respective owners.
 
 Community and support: https://discord.gg/qccG89rvzT
-Server: 172.240.18.253:16261
+Server: 198.27.75.78:16261
 
 2. TERMS OF USE
 

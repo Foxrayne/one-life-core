@@ -99,7 +99,7 @@ public final class GameLaunch {
     /** Client-only menu/connection branding shipped in the World Essentials workshop item. */
     static final String ONE_LIFE_FRONTEND_MOD = "OneLifeFrontendBranding";
 
-    static final String ONE_LIFE_HOST = "172.240.18.253";
+    static final String ONE_LIFE_HOST = "198.27.75.78";
 
     public static final class LaunchPlan {
         public final List<String> command;
